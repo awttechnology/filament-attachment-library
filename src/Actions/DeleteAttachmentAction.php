@@ -1,0 +1,34 @@
+<?php
+
+namespace AwtTechnology\FilamentAttachmentLibrary\Actions;
+
+use Filament\Actions\Action;
+use Filament\Notifications\Notification;
+use AwtTechnology\FilamentAttachmentLibrary\Facades\AttachmentManager;
+use AwtTechnology\FilamentAttachmentLibrary\Models\Attachment;
+
+class DeleteAttachmentAction extends Action
+{
+    protected function setUp(): void
+    {
+        $this->label(__('filament-attachment-library::views.actions.attachment.delete'));
+
+        $this->requiresConfirmation();
+
+        $this->color('danger');
+
+        $this->action(function (array $arguments) {
+            $this->getLivewire()->dispatch('dehighlight-attachment', $arguments['attachment_id']);
+
+            /** @var Attachment $attachment */
+            $attachment = Attachment::find($arguments['attachment_id']);
+
+            AttachmentManager::delete($attachment);
+
+            Notification::make()
+                ->title(__('filament-attachment-library::notifications.attachment.deleted'))
+                ->success()
+                ->send();
+        });
+    }
+}
