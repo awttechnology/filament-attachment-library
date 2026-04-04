@@ -1,0 +1,420 @@
+<?php
+
+namespace AwtTechnology\FilamentAttachmentLibrary\Livewire;
+
+use Filament\Actions\Action;
+use Filament\Actions\Contracts\HasActions;
+use Filament\Forms\Components\BaseFileUpload;
+use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\TextInput;
+use Filament\Forms\Concerns\InteractsWithForms;
+use Filament\Forms\Contracts\HasForms;
+use Filament\Notifications\Notification;
+use Filament\Schemas\Schema;
+use Illuminate\Contracts\View\View;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\Lang;
+use Illuminate\Support\Str;
+use Livewire\Attributes\Computed;
+use Livewire\Attributes\On;
+use Livewire\Attributes\Url;
+use Livewire\Component;
+use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
+use Livewire\WithPagination;
+use AwtTechnology\FilamentAttachmentLibrary\Actions\DeleteAttachmentAction;
+use AwtTechnology\FilamentAttachmentLibrary\Actions\DeleteDirectoryAction;
+use AwtTechnology\FilamentAttachmentLibrary\Actions\EditAttachmentAction;
+use AwtTechnology\FilamentAttachmentLibrary\Actions\MoveAttachmentAction;
+use AwtTechnology\FilamentAttachmentLibrary\Actions\OpenAttachmentAction;
+use AwtTechnology\FilamentAttachmentLibrary\Actions\RenameDirectoryAction;
+use AwtTechnology\FilamentAttachmentLibrary\Actions\ReplaceAttachmentAction;
+use AwtTechnology\FilamentAttachmentLibrary\Concerns\InteractsWithActionsUsingAlpineJS;
+use AwtTechnology\FilamentAttachmentLibrary\Enums\Layout;
+use AwtTechnology\FilamentAttachmentLibrary\Rules\AllowedFilename;
+use AwtTechnology\FilamentAttachmentLibrary\Rules\DestinationExists;
+use AwtTechnology\FilamentAttachmentLibrary\Rules\HasValidExtension;
+use AwtTechnology\FilamentAttachmentLibrary\ViewModels\AttachmentViewModel;
+use AwtTechnology\FilamentAttachmentLibrary\ViewModels\DirectoryViewModel;
+use AwtTechnology\FilamentAttachmentLibrary\DataTransferObjects\Directory;
+use AwtTechnology\FilamentAttachmentLibrary\Enums\DirectoryStrategies;
+use AwtTechnology\FilamentAttachmentLibrary\Facades\AttachmentManager;
+use AwtTechnology\FilamentAttachmentLibrary\Models\Attachment;
+
+/**
+ * @property \Filament\Schemas\Schema $uploadAttachmentForm
+ * @property \Filament\Schemas\Schema $createDirectoryForm
+ */
+class AttachmentBrowser extends Component implements HasActions, HasForms
+{
+    use InteractsWithActionsUsingAlpineJS;
+    use InteractsWithForms;
+    use WithPagination;
+
+    public ?string $basePath = null;
+
+    #[Url(history: true, keep: true, nullable: true)]
+    public ?string $currentPath = null;
+
+    #[Url(history: true, keep: true)]
+    public string $sortBy = 'name_asc';
+
+    #[Url(history: true, keep: true)]
+    public int $pageSize = 25;
+
+    #[Url(history: true, keep: true)]
+    public Layout $layout = Layout::GRID;
+
+    public string $search = '';
+
+    public ?string $mime = null;
+
+    public bool $disableMimeFilter = false;
+
+    public bool $multiple = false;
+
+    public array $selected = [];
+
+    public bool $disabled = false;
+
+    public ?string $statePath = null;
+
+    public ?array $createDirectoryFormState = [];
+
+    public ?array $uploadFormState = ['attachment' => []];
+
+    protected $listeners = [
+        'refresh-attachments' => '$refresh',
+    ];
+
+    public const SORTABLE_FIELDS = [
+        'name',
+        'created_at',
+        'updated_at',
+    ];
+
+    public const PAGE_SIZES = [5, 10, 25, 50];
+
+    public const FILTERABLE_FILE_TYPES = [
+        'all' => '',
+        'image' => 'image/*',
+        'audio' => 'audio/*',
+        'video' => 'video/*',
+        'pdf' => 'application/pdf',
+    ];
+
+    public function render(): View
+    {
+        $this->currentPath = $this->normalizePath($this->currentPath);
+
+        $attachments = $this->getAttachments();
+        $directories = $this->getDirectories();
+
+        return view('filament-attachment-library::livewire.attachment-browser', compact('attachments', 'directories'));
+    }
+
+    public function mount(): void
+    {
+        if (!in_array($this->pageSize, self::PAGE_SIZES)) {
+            $this->pageSize = 1;
+        }
+
+        if (!in_array($this->layout, Layout::cases())) {
+            $this->layout = Layout::GRID;
+        }
+    }
+
+    public function deleteDirectoryAction(): Action
+    {
+        return DeleteDirectoryAction::make('renameDirectory');
+    }
+
+    public function renameDirectoryAction(): Action
+    {
+        return RenameDirectoryAction::make('renameDirectory')
+            ->setCurrentPath($this->getCurrentPath());
+    }
+
+    public function deleteAttachmentAction(): Action
+    {
+        return DeleteAttachmentAction::make('deleteAttachment');
+    }
+
+    public function openAttachmentAction(): Action
+    {
+        return OpenAttachmentAction::make('openAttachment');
+    }
+
+    public function editAttachmentAction(): Action
+    {
+        return EditAttachmentAction::make('editAttributeAttachmentAction')
+            ->setCurrentPath($this->getCurrentPath());
+    }
+
+    public function moveAttachmentAction(): Action
+    {
+        return MoveAttachmentAction::make('moveAttachment');
+    }
+
+    public function replaceAttachmentAction(): Action
+    {
+        return ReplaceAttachmentAction::make('replaceAttachment')
+            ->setCurrentPath($this->getCurrentPath());
+    }
+
+    protected function getCurrentPath(): ?string
+    {
+        return implode('/', array_filter([$this->basePath, $this->currentPath])) ?: null;
+    }
+
+    protected function getForms(): array
+    {
+        return [
+            'uploadAttachmentForm',
+            'createDirectoryForm',
+        ];
+    }
+
+    /**
+     * Form schema for UploadAttachmentForm.
+     */
+    public function uploadAttachmentForm(Schema $schema): Schema
+    {
+        $validationMessages = Lang::get('validation');
+
+        return $schema->components([
+            FileUpload::make('attachment')
+                ->rules([
+                    new AllowedFilename(),
+                    new DestinationExists($this->getCurrentPath()),
+                    new HasValidExtension(),
+                    ...Config::get('filament-attachment-library.upload_rules', []),
+                ])
+                ->multiple()
+                ->required()
+                ->label(__('filament-attachment-library::forms.upload_attachment.name'))
+                ->fetchFileInformation()
+                ->saveUploadedFileUsing(
+                    function (BaseFileUpload $component, TemporaryUploadedFile $file) {
+                        $attachment = AttachmentManager::upload($file, $this->getCurrentPath());
+                        $this->selectAttachment($attachment->id);
+                        $component->removeUploadedFile($file);
+                    }
+                )->validationMessages([
+                    ...(is_array($validationMessages) ? $validationMessages : []),
+                    DestinationExists::class => __('filament-attachment-library::validation.destination_exists'),
+                    AllowedFilename::class => __('filament-attachment-library::validation.allowed_filename'),
+                    HasValidExtension::class => __('filament-attachment-library::validation.invalid_extension'),
+                ]),
+        ])->statePath('uploadFormState');
+    }
+
+    /**
+     * Form schema for CreateDirectoryForm.
+     */
+    public function createDirectoryForm(Schema $schema): Schema
+    {
+        return $schema->components([
+            TextInput::make('name')
+                ->rules([
+                    new DestinationExists($this->getCurrentPath()),
+                    new AllowedFilename(),
+                ])->required()
+                ->autocomplete(false)
+                ->label(__('filament-attachment-library::forms.create_directory.name')),
+        ])->statePath('createDirectoryFormState');
+    }
+
+    /**
+     * Submit handler for UploadAttachmentForm.
+     */
+    public function saveUploadAttachmentForm(): void
+    {
+        $this->uploadAttachmentForm->getState();
+
+        Notification::make()
+            ->title(__('filament-attachment-library::notifications.attachment.created'))
+            ->success()
+            ->send();
+    }
+
+    /**
+     * Submit handler for CreateDirectoryForm.
+     */
+    public function saveCreateDirectoryForm(): void
+    {
+        $state = $this->createDirectoryForm->getState();
+        $path = implode('/', (array_filter([$this->getCurrentPath(), $state['name']])));
+
+        $flags = [];
+        if ($this->basePath) {
+            $flags[] = DirectoryStrategies::CREATE_PARENT_DIRECTORIES;
+        }
+
+        AttachmentManager::createDirectory($path, ...$flags);
+
+        $this->createDirectoryForm->fill();
+
+        Notification::make()
+            ->title(__('filament-attachment-library::notifications.directory.created'))
+            ->success()
+            ->send();
+    }
+
+    public function selectAttachment(int|string $id): void
+    {
+        if ($this->disabled) {
+            return;
+        }
+
+        if (in_array($id, $this->selected)) {
+            $this->selected = collect($this->selected)->filter(fn ($item) => $item !== $id)->toArray();
+            $this->dispatch('highlight-attachment', null);
+            return;
+        }
+
+        $this->selected = match ($this->multiple) {
+            true => collect($this->selected)->push($id)->unique()->toArray(),
+            false => [$id],
+        };
+
+        $this->dispatch('highlight-attachment', $id);
+    }
+
+    /**
+     * Set current path.
+     */
+    #[On('open-path')]
+    public function openPath(?string $path): void
+    {
+        $this->currentPath = Str::startsWith($path, $this->basePath)
+            ? trim(Str::after($path, $this->basePath), '/')
+            : $path;
+
+        $this->dispatch('highlight-attachment', null);
+    }
+
+    #[On('set-mime')]
+    public function setMime(?string $mime): void
+    {
+        $this->mime = $mime;
+    }
+
+    /**
+     * Reset page on search query update.
+     */
+    public function updatingSearch(): void
+    {
+        $this->resetPage();
+    }
+
+    /**
+     * Normalize path to ensure empty strings are treated as null (root directory).
+     */
+    public function normalizePath(?string $path): ?string
+    {
+        $path = trim($path, '/');
+        return blank($path)
+            ? null
+            : $path;
+    }
+
+    /**
+     * Return current path in parts (breadcrumbs).
+     */
+    #[Computed]
+    public function breadcrumbs(): array
+    {
+        $crumbs = array_filter(explode('/', $this->currentPath ?? ''));
+        $breadcrumbs = [];
+
+        foreach ($crumbs as $index => $crumb) {
+            $pathToCrumb = implode('/', array_slice($crumbs, 0, $index + 1));
+            $breadcrumbs[$pathToCrumb] = $crumb;
+        }
+
+        return $breadcrumbs;
+    }
+
+    private function getDirectories(): Collection
+    {
+        $sortColumn = Str::beforeLast($this->sortBy, '_');
+        $sortDirection = Str::afterLast($this->sortBy, '_');
+
+        return AttachmentManager::directories($this->getCurrentPath())
+            ->when($this->search, function (Collection $collection) {
+                return $collection->filter(fn (Directory $directory) => str_contains(strtolower($directory->name), strtolower($this->search)));
+            })
+            ->when(!$this->search, function (Collection $collection) {
+                return $collection->filter(fn (Directory $directory) => $directory->path === $this->getCurrentPath());
+            })
+            ->when($sortColumn === 'name', function (Collection $collection) use ($sortDirection) {
+                return $sortDirection === 'desc'
+                    ? $collection->sortByDesc('name')
+                    : $collection->sortBy('name');
+            })->map(fn (Directory $directory) => new DirectoryViewModel($directory));
+    }
+
+    /**
+     * @return LengthAwarePaginator<int, AttachmentViewModel>
+     */
+    private function getAttachments(): LengthAwarePaginator
+    {
+        $sortColumn = Str::beforeLast($this->sortBy, '_');
+        $sortDirection = Str::afterLast($this->sortBy, '_');
+
+        $attachments = Attachment::query()
+            ->when($this->search, function (Builder $query) {
+                $query->where('name', 'like', '%' . $this->search . '%');
+            })
+            ->when(!$this->search, function (Builder $query) {
+                $query->where('path', $this->getCurrentPath());
+            })
+            ->when($this->mime, function (Builder $query) {
+                $query->where('mime_type', 'like', str_replace('*', '%', $this->mime));
+            })
+            ->orderBy($sortColumn, $sortDirection)
+            ->paginate($this->pageSize);
+
+        $collection = $attachments->getCollection()
+            ->map(fn (Attachment $attachment) => new AttachmentViewModel($attachment));
+
+        /** @var LengthAwarePaginator<int, AttachmentViewModel> $attachments */
+        $attachments->setCollection($collection);
+
+        return $attachments;
+    }
+
+
+    #[On('close-modal')]
+    public function closeModal(bool $save = false): void
+    {
+        if ($save) {
+            $selected = match ($this->multiple) {
+                true => $this->selected,
+                false => $this->selected[0] ?? null,
+            };
+
+            // Fire a dynamic event name based on the statePath so only the correct listener picks it up
+            $this->dispatch('attachments-selected-' . md5($this->statePath), statePath: $this->statePath, selected: $selected);
+        }
+
+        $this->dispatch('highlight-attachment', null);
+        $this->reset();
+    }
+
+    #[On('open-attachment-modal')]
+    public function openModal(?string $statePath = null, int|array|null $selected = null, ?bool $multiple = null, ?string $mime = null, ?bool $disableMimeFilter = null): void
+    {
+        $this->statePath = $statePath;
+        $this->multiple = $multiple;
+        $this->mime = $mime;
+        $this->disableMimeFilter = $disableMimeFilter;
+
+        if ($selected) {
+            $this->selected = is_array($selected) ? $selected : [$selected];
+        }
+    }
+}

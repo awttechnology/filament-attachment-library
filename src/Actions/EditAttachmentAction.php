@@ -1,0 +1,110 @@
+<?php
+
+namespace AwtTechnology\FilamentAttachmentLibrary\Actions;
+
+use Filament\Actions\Action;
+use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
+use Filament\Notifications\Notification;
+use Filament\Schemas\Components\Grid;
+use Filament\Schemas\Components\Section;
+use Filament\Schemas\Schema;
+use Filament\Support\Enums\Width;
+use AwtTechnology\FilamentAttachmentLibrary\Actions\Traits\HasCurrentPath;
+use AwtTechnology\FilamentAttachmentLibrary\Filament\Fields\FocalPointPicker;
+use AwtTechnology\FilamentAttachmentLibrary\Rules\AllowedFilename;
+use AwtTechnology\FilamentAttachmentLibrary\Rules\DestinationExists;
+use AwtTechnology\FilamentAttachmentLibrary\Enums\AttachmentType;
+use AwtTechnology\FilamentAttachmentLibrary\Facades\AttachmentManager;
+use AwtTechnology\FilamentAttachmentLibrary\Models\Attachment;
+
+class EditAttachmentAction extends Action
+{
+    use HasCurrentPath;
+
+    protected function setUp(): void
+    {
+        $this->label(__('filament-attachment-library::views.actions.attachment.edit'));
+
+        $this->color('gray');
+
+        $this->schema(function (array $arguments) {
+            /** @var Attachment $attachment */
+            $attachment = Attachment::find($arguments['attachment_id']);
+
+            $isImage = $attachment->isType(AttachmentType::PREVIEWABLE_IMAGE);
+
+            return [
+                Grid::make()->schema([
+                    Section::make(__('filament-attachment-library::forms.focal_point.label'))
+                        ->description(__('filament-attachment-library::forms.focal_point.description'))
+                        ->schema([
+                            FocalPointPicker::make('focal_point')
+                                ->hiddenLabel()
+                                ->image($attachment->url),
+                        ]),
+                    Section::make()->schema([
+                        TextInput::make('name')
+                            ->label(__('filament-attachment-library::forms.edit_attachment.name'))
+                            ->rules([
+                                new DestinationExists($this->currentPath, $arguments['attachment_id']),
+                                new AllowedFilename(),
+                            ], fn (?string $state) => $state !== $attachment->name)
+                            ->maxLength(255)
+                            ->visible($isImage),
+                        TextInput::make('title')
+                            ->label(__('filament-attachment-library::forms.edit_attachment.title'))
+                            ->maxLength(255),
+                        Textarea::make('description')
+                            ->label(__('filament-attachment-library::forms.edit_attachment.description'))
+                            ->maxLength(255),
+                        TextInput::make('alt')
+                            ->hidden(! $isImage)
+                            ->label(__('filament-attachment-library::forms.edit_attachment.alt'))
+                            ->maxLength(255),
+                        Textarea::make('caption')
+                            ->hidden(! $isImage)
+                            ->label(__('filament-attachment-library::forms.edit_attachment.caption'))
+                            ->maxLength(255),
+                    ])->contained(false),
+                ]),
+            ];
+        });
+
+        $this->mountUsing(function (Schema $schema, array $arguments) {
+            /** @var Attachment $attachment */
+            $attachment = Attachment::find($arguments['attachment_id']);
+
+            $schema->fill([
+                'alt' => $attachment->alt,
+                'caption' => $attachment->caption,
+                'description' => $attachment->description,
+                'name' => $attachment->name,
+                'title' => $attachment->title,
+                'focal_point' => $attachment->focal_point,
+            ]);
+        });
+
+        $this->action(function (array $arguments, array $data) {
+            /** @var Attachment $attachment */
+            $attachment = Attachment::find($arguments['attachment_id']);
+
+            if ($data['name'] !== $attachment->name) {
+                AttachmentManager::rename($attachment, $data['name']);
+            }
+
+            $attachment->fill($data);
+            $attachment->save();
+
+            $this->getLivewire()->dispatch('highlight-attachment', $arguments['attachment_id']);
+
+            Notification::make()
+                ->title(__('filament-attachment-library::notifications.attachment.updated'))
+                ->success()
+                ->send();
+        });
+
+        $this->modalWidth(Width::Full);
+        $this->slideOver();
+    }
+}
