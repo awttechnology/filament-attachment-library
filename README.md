@@ -172,6 +172,37 @@ AttachmentField::make('gallery')->relationship(),
 AttachmentField::make('gallery')->relationship()->collection('product_gallery'),
 ```
 
+### Remote file fetcher field
+
+`RemoteFileFetcher` is a Filament form field that downloads a file from a remote URL, stores it on a configured disk, and creates an `Attachment` record — all from within the Filament admin panel.
+
+```php
+use AwtTechnology\FilamentAttachmentLibrary\Forms\Components\RemoteFileFetcher;
+
+RemoteFileFetcher::make('field_name')
+    ->disk('public')       // Storage disk (default: 'public')
+    ->folder('uploads')    // Folder within the disk (created automatically if missing)
+    ->fileType('image'),   // Restrict to 'image', 'pdf', or omit for any file type
+```
+
+The field renders a **Remote URL** input, a target folder hint, and a **Local Filename** input with a **Fetch File** button. On success, the field state is set to the stored path and an `Attachment` record is created.
+
+**Validation performed before fetching:**
+- URL format is validated using Laravel's `url` rule
+- A HEAD request confirms the URL is reachable and checks the `Content-Type` header against the configured file type restriction
+- If a file with the given filename already exists at the destination, an error is shown and the fetch is skipped
+
+**Extension correction:**
+The filename extension is automatically corrected if it does not match the remote file's actual extension (derived first from the remote URL path, then from the `Content-Type` header). For example, providing `logo.png` for a BMP image will silently rename it to `logo.bmp`.
+
+**Supported `fileType()` values:**
+
+| Value | Accepted MIME types |
+|---|---|
+| `'image'` | `image/jpeg`, `image/png`, `image/gif`, `image/webp`, `image/svg+xml` |
+| `'pdf'` | `application/pdf` |
+| `null` *(default)* | Any content type |
+
 ### HasAttachments trait
 
 Add the trait to any model to get an `attachments()` polymorphic relationship:
