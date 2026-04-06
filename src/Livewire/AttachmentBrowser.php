@@ -406,12 +406,16 @@ class AttachmentBrowser extends Component implements HasActions, HasForms
     }
 
     #[On('open-attachment-modal')]
-    public function openModal(?string $statePath = null, int|array|null $selected = null, ?bool $multiple = null, ?string $mime = null, ?bool $disableMimeFilter = null): void
+    public function openModal(?string $statePath = null, int|array|null $selected = null, ?bool $multiple = null, ?string $mime = null, ?bool $disableMimeFilter = null, ?string $directory = null): void
     {
         $this->statePath = $statePath;
         $this->multiple = $multiple;
         $this->mime = $mime;
         $this->disableMimeFilter = $disableMimeFilter;
+
+        if ($directory !== null) {
+            $this->currentPath = $this->normalizePath($directory);
+        }
 
         if ($selected) {
             $this->selected = is_array($selected) ? $selected : [$selected];

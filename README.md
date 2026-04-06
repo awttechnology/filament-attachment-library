@@ -172,6 +172,30 @@ AttachmentField::make('gallery')->relationship(),
 AttachmentField::make('gallery')->relationship()->collection('product_gallery'),
 ```
 
+#### Restricting file types
+
+```php
+AttachmentField::make('photo')->image(),   // image/*
+AttachmentField::make('clip')->video(),    // video/*
+AttachmentField::make('track')->audio(),   // audio/*
+AttachmentField::make('document')->pdf(),  // application/pdf
+AttachmentField::make('notes')->text(),    // text/*
+
+// Or supply a custom MIME type
+AttachmentField::make('file')->mime('application/zip'),
+```
+
+#### Setting a default directory
+
+Open the browser at a specific directory instead of the storage root:
+
+```php
+AttachmentField::make('banner')->directory('images/banners'),
+
+// Accepts a Closure for dynamic paths
+AttachmentField::make('avatar')->directory(fn () => 'users/' . auth()->id()),
+```
+
 ### Remote file fetcher field
 
 `RemoteFileFetcher` is a Filament form field that downloads a file from a remote URL, stores it on a configured disk, and creates an `Attachment` record — all from within the Filament admin panel.

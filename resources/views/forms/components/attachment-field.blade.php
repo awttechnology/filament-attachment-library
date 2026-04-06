@@ -26,6 +26,7 @@
                 multiple: {{ json_encode($getMultiple()) }},
                 statePath: {{ json_encode($getStatePath()) }},
                 disableMimeFilter: {{ json_encode($getMime() !== null) }},
+                directory: {{ json_encode($getDirectory()) }},
             }); $dispatch('open-modal', { id: 'attachment-modal' })"
             icon="heroicon-o-document"
             :disabled="$isDisabled()"

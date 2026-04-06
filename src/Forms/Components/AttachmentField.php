@@ -29,6 +29,8 @@ class AttachmentField extends Field
 
     public ?string $mime = null;
 
+    public string|Closure|null $directory = null;
+
     protected string $view = 'filament-attachment-library::forms.components.attachment-field';
 
     protected function setUp(): void
@@ -188,6 +190,18 @@ class AttachmentField extends Field
         return $this->evaluate($this->mime);
     }
 
+    public function directory(string|Closure|null $directory): static
+    {
+        $this->directory = $directory;
+
+        return $this;
+    }
+
+    public function getDirectory(): ?string
+    {
+        return $this->evaluate($this->directory);
+    }
+
     /**
      * Wrapper methods to stay compliant with commonly used FileUpload methods.
      */
@@ -223,5 +237,10 @@ class AttachmentField extends Field
     public function text(): static
     {
         return $this->mime('text/*');
+    }
+
+    public function pdf(): static
+    {
+        return $this->mime('application/pdf');
     }
 }
