@@ -230,7 +230,7 @@ class RemoteFileFetcher extends Field
             'extension' => Str::afterLast($filename, '.'),
             'disk' => $disk,
             'mime_type' => $contentType,
-            'path' => $path,
+            'path' => $folder,
             'size' => strlen($body),
         ]);
 
