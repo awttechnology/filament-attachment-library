@@ -211,6 +211,26 @@ RemoteFileFetcher::make('field_name')
 
 The field renders a **Remote URL** input, a target folder hint, and a **Local Filename** input with a **Fetch File** button. On success, the field state is set to the stored path and an `Attachment` record is created.
 
+#### Syncing to an AttachmentField
+
+Use `->updateAttachmentField()` to automatically set a sibling `AttachmentField` to the newly created attachment after a successful fetch:
+
+```php
+AttachmentField::make('pdf_file')
+    ->pdf()
+    ->directory('brochures')
+    ->dehydrateStateUsing(fn ($state) => $state ? Attachment::find($state)?->url : null)
+    ->formatStateUsing(fn ($state) => $state ? Attachment::get()->first(fn ($a) => $a->url === $state)?->id : null),
+
+RemoteFileFetcher::make('fetch_pdf')
+    ->updateAttachmentField('pdf_file')  // name of the sibling AttachmentField
+    ->disk('bunny')
+    ->folder('brochures')
+    ->fileType('pdf'),
+```
+
+The `attachment_id` returned from the fetch is written directly to the sibling field's Livewire state, so the `AttachmentField` reflects the new file without a page reload.
+
 **Validation performed before fetching:**
 - URL format is validated using Laravel's `url` rule
 - A HEAD request confirms the URL is reachable and checks the `Content-Type` header against the configured file type restriction

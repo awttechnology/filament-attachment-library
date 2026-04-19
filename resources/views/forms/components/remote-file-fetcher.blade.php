@@ -6,6 +6,7 @@
         $key = $getKey();
         $statePath = $getStatePath();
         $storedPath = $getState();
+        $updateAttachmentFieldStatePath = $field->getUpdateAttachmentFieldStatePath();
     @endphp
 
     <div
@@ -31,6 +32,9 @@
                     this.status = 'success';
                     this.message = result.path;
                     $wire.set(@js($statePath), result.path);
+                    @if($updateAttachmentFieldStatePath)
+                    $wire.set(@js($updateAttachmentFieldStatePath), result.attachment_id);
+                    @endif
                 } else {
                     this.status = 'error';
                     this.message = result.error;

@@ -38,6 +38,8 @@ class RemoteFileFetcher extends Field
      */
     protected string|Closure|null $fileType = null;
 
+    protected string|Closure|null $updateAttachmentField = null;
+
     /**
      * @var array<string, string[]>
      */
@@ -45,6 +47,26 @@ class RemoteFileFetcher extends Field
         'image' => ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml'],
         'pdf' => ['application/pdf'],
     ];
+
+    public function updateAttachmentField(string|Closure|null $field): static
+    {
+        $this->updateAttachmentField = $field;
+
+        return $this;
+    }
+
+    public function getUpdateAttachmentFieldStatePath(): ?string
+    {
+        $fieldName = $this->evaluate($this->updateAttachmentField);
+
+        if (blank($fieldName)) {
+            return null;
+        }
+
+        $prefix = Str::beforeLast($this->getStatePath(), '.');
+
+        return $prefix.'.'.$fieldName;
+    }
 
     /**
      * Set the file type restriction. Accepts 'image', 'pdf', or null (any).
