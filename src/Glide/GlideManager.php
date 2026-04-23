@@ -4,6 +4,7 @@ namespace AwtTechnology\FilamentAttachmentLibrary\Glide;
 
 use Exception;
 use Illuminate\Contracts\Filesystem\Filesystem;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
 use League\Glide\Responses\SymfonyResponseFactory;
 use League\Glide\Server;
@@ -57,28 +58,31 @@ class GlideManager
      */
     public function cacheStats(): array
     {
-        return [
-            'files'         => $this->cacheFiles(),
-            'size'          => $this->cacheSize(),
-            'readable_size' => $this->cacheSizeHumanReadable(),
-        ];
+        return Cache::remember('glide-cache-stats', now()->addMinutes(5), function () {
+            $files = $this->cacheDisk()->allFiles();
+            $size  = collect($files)->sum(fn ($file) => $this->cacheDisk()->size($file));
+
+            return [
+                'files'         => count($files),
+                'size'          => $size,
+                'readable_size' => $this->humanReadableSize($size),
+            ];
+        });
     }
 
     public function cacheFiles(): int
     {
-        return count($this->cacheDisk()->allFiles());
+        return $this->cacheStats()['files'];
     }
 
     public function cacheSize(): int
     {
-        return collect($this->cacheDisk()->allFiles())->sum(
-            fn ($file) => $this->cacheDisk()->size($file)
-        );
+        return $this->cacheStats()['size'];
     }
 
     public function cacheSizeHumanReadable(): string
     {
-        return $this->humanReadableSize($this->cacheSize());
+        return $this->cacheStats()['readable_size'];
     }
 
     public function humanReadableSize(int $bytes, $decimals = 2): string
@@ -90,12 +94,16 @@ class GlideManager
 
     public function imageIsSupported(string $path, array $params = []): bool
     {
-        try {
-            $this->server()->makeImage($path, $params);
-            return true;
-        } catch (Exception) {
-            return false;
-        }
+        $key = 'glide-image-supported:' . hash('sha256', $path . json_encode($params));
+
+        return Cache::remember($key, now()->addMinutes(5), function () use ($path, $params) {
+            try {
+                $this->server()->makeImage($path, $params);
+                return true;
+            } catch (Exception) {
+                return false;
+            }
+        });
     }
 
     /**
@@ -105,39 +113,43 @@ class GlideManager
      */
     public function getSupportedImageFormats(bool $onlyCommon = true): array
     {
-        $commonFormats = ['AVIF','BMP','GIF','HEIC','HEIF','ICO','JPEG','JPG','PNG','SVG','TIFF','WEBP'];
-        $driver = $this->driver();
+        $key = 'glide-supported-formats:' . $this->driver() . ':' . ($onlyCommon ? 'common' : 'all');
 
-        if ($driver === 'gd' && function_exists('gd_info')) {
-            $formats = gd_info();
-            $supported = collect();
-            foreach ($formats as $key => $value) {
-                if ($value === false) {
-                    continue;
-                }
-                if ($onlyCommon) {
-                    foreach ($commonFormats as $format) {
-                        if (str_contains($key, $format)) {
-                            $supported->push($format);
-                            break;
-                        }
+        return Cache::remember($key, now()->addDay(), function () use ($onlyCommon) {
+            $commonFormats = ['AVIF','BMP','GIF','HEIC','HEIF','ICO','JPEG','JPG','PNG','SVG','TIFF','WEBP'];
+            $driver = $this->driver();
+
+            if ($driver === 'gd' && function_exists('gd_info')) {
+                $formats = gd_info();
+                $supported = collect();
+                foreach ($formats as $key => $value) {
+                    if ($value === false) {
+                        continue;
                     }
-                } else {
-                    $format = strtoupper(str_replace([' ', 'Support'], '', $key));
-                    $supported->push($format);
+                    if ($onlyCommon) {
+                        foreach ($commonFormats as $format) {
+                            if (str_contains($key, $format)) {
+                                $supported->push($format);
+                                break;
+                            }
+                        }
+                    } else {
+                        $format = strtoupper(str_replace([' ', 'Support'], '', $key));
+                        $supported->push($format);
+                    }
                 }
+                return $supported->unique()->values()->sort()->all();
             }
-            return $supported->unique()->values()->sort()->all();
-        }
 
-        if ($driver === 'imagick' && class_exists(\Imagick::class)) {
-            $formats = \Imagick::queryFormats();
-            return collect()
-                ->when($onlyCommon, fn ($c) => $c->merge($commonFormats)->filter(fn ($f) => in_array($f, $formats)))
-                ->when(!$onlyCommon, fn ($c) => $c->merge($formats))
-                ->unique()->values()->sort()->all();
-        }
+            if ($driver === 'imagick' && class_exists(\Imagick::class)) {
+                $formats = \Imagick::queryFormats();
+                return collect()
+                    ->when($onlyCommon, fn ($c) => $c->merge($commonFormats)->filter(fn ($f) => in_array($f, $formats)))
+                    ->when(!$onlyCommon, fn ($c) => $c->merge($formats))
+                    ->unique()->values()->sort()->all();
+            }
 
-        return [];
+            return [];
+        });
     }
 }

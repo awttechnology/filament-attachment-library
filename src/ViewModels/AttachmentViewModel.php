@@ -4,6 +4,7 @@ namespace AwtTechnology\FilamentAttachmentLibrary\ViewModels;
 
 use Carbon\CarbonInterface;
 use Illuminate\Foundation\Auth\User;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Str;
 use Livewire\Wireable;
@@ -69,9 +70,13 @@ class AttachmentViewModel implements Wireable
         $this->extension = Str::of($attachment->filename)->afterLast('.')->upper()->toString();
         $this->mimeType = $attachment->mime_type;
         $this->size = round($attachment->size / 1024 / 1024, 2);
-        $this->createdBy = $userModel::find($attachment->created_by)?->{$usernameProperty};
+        $this->createdBy = $attachment->created_by
+            ? Cache::remember('attachment-user:' . $attachment->created_by, now()->addMinutes(5), fn () => $userModel::find($attachment->created_by)?->{$usernameProperty})
+            : null;
         $this->createdAt = $attachment->created_at; // @phpstan-ignore-line
-        $this->updatedBy = $userModel::find($attachment->updated_by)?->{$usernameProperty};
+        $this->updatedBy = $attachment->updated_by
+            ? Cache::remember('attachment-user:' . $attachment->updated_by, now()->addMinutes(5), fn () => $userModel::find($attachment->updated_by)?->{$usernameProperty})
+            : null;
         $this->updatedAt = $attachment->updated_at; // @phpstan-ignore-line
 
         $this->title = $attachment->title;
