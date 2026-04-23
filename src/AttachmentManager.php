@@ -69,6 +69,10 @@ class AttachmentManager
      */
     public function directories(?string $path = null): Collection
     {
+        if (Config::get('attachment-library.directory_source', 'filesystem') === 'database') {
+            return $this->directoriesFromDatabase($path);
+        }
+
         if (Config::get('attachment-library.auto_sync', true)) {
             $this->syncIfDue($path);
         }
@@ -83,6 +87,36 @@ class AttachmentManager
             })
             ->map(fn ($directory) => new $this->directoryClass($directory))
             ->reject(fn (Directory $directory) => in_array($directory->name, $hidden, true));
+    }
+
+    private function directoriesFromDatabase(?string $path = null): Collection
+    {
+        $hidden = Config::get('attachment-library.hidden_directories', []);
+
+        $allPaths = $this->attachmentClass::whereDisk($this->disk)
+            ->whereNotNull('path')
+            ->where('path', '!=', '')
+            ->distinct()
+            ->pluck('path');
+
+        if ($path === null) {
+            $directoryPaths = $allPaths
+                ->map(fn ($p) => explode('/', $p)[0])
+                ->unique()
+                ->values();
+        } else {
+            $prefix = $path . '/';
+            $directoryPaths = $allPaths
+                ->filter(fn ($p) => str_starts_with($p, $prefix))
+                ->map(fn ($p) => $path . '/' . explode('/', substr($p, strlen($prefix)))[0])
+                ->unique()
+                ->values();
+        }
+
+        return $directoryPaths
+            ->map(fn ($dir) => new $this->directoryClass($dir))
+            ->reject(fn (Directory $directory) => in_array($directory->name, $hidden, true))
+            ->values();
     }
 
     protected function syncIfDue(?string $directory): void

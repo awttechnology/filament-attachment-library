@@ -16,6 +16,16 @@ return [
     'auto_sync' => true,
 
     /**
+     * Source used when listing directories.
+     *
+     * 'filesystem' — reads from the disk via Flysystem (default).
+     * 'database'   — derives directories from distinct `path` values in the
+     *                attachments table. Avoids filesystem I/O but only surfaces
+     *                directories that contain at least one attachment.
+     */
+    'directory_source' => 'filesystem',
+
+    /**
      * How long (in seconds) to suppress re-syncing a directory after it has been synced.
      * Default: 300 (5 minutes).
      */

@@ -123,6 +123,7 @@ npm run build
 | `disk` | `env('ATTACHMENTS_DISK', 'public')` | Storage disk for attachments |
 | `auto_sync` | `true` | Auto-sync filesystem to database on browse |
 | `auto_sync_interval` | `300` | Seconds between auto-syncs |
+| `directory_source` | `'filesystem'` | Source for directory listing: `'filesystem'` or `'database'` |
 | `hidden_directories` | `['.glide']` | Directory names hidden from the browser UI |
 | `metadata_retrievers` | `[CacheableGd::class => ['image/*']]` | Metadata adapters mapped to MIME types |
 | `class_mapping.attachment` | `Attachment::class` | Override the Attachment model |
@@ -140,6 +141,17 @@ npm run build
 | `breakpoints` | see config | Responsive breakpoints |
 | `sizes` | see config | Named size ratios |
 | `formats` | `['webp', 'jpg']` | Output formats, tried in order |
+
+### Directory source
+
+By default the browser lists directories by reading the filesystem. Set `directory_source` to `'database'` to derive directories from the `path` column of existing attachment records instead — useful when the filesystem is remote or slow, as it avoids Flysystem I/O entirely.
+
+```php
+// config/attachment-library.php
+'directory_source' => 'database',
+```
+
+> **Note:** In database mode only directories that contain at least one attachment are visible. Empty directories will not appear.
 
 ### Hidden directories
 
