@@ -67,6 +67,15 @@ class Attachment extends Model
         return AttachmentFactory::new();
     }
 
+    protected static function boot(): void
+    {
+        parent::boot();
+
+        static::updated(function (Attachment $attachment) {
+            \Illuminate\Support\Facades\Cache::forget('attachment-thumbnail-url:' . $attachment->id . ':h320');
+        });
+    }
+
     /**
      * Return associated models of given class.
      */

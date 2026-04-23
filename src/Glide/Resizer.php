@@ -179,6 +179,9 @@ class Resizer
     /**
      * Resize the image and return an array with the URL, width, and height.
      *
+     * Callers must ensure the path is Glide-supported before calling (e.g. via
+     * Glide::imageIsSupported()) — this method no longer guards internally.
+     *
      * When the configured cache disk is a remote disk (e.g. bunny-glide), the
      * resized variant is written via makeImage() and the public CDN URL is
      * returned directly so the browser loads it from the edge without PHP.
@@ -187,19 +190,15 @@ class Resizer
      */
     public function resize(): array
     {
-        if (!Glide::imageIsSupported($this->path)) {
-            return [];
-        }
-
         $width  = $this->calculateWidth();
         $height = $this->calculateHeight();
 
-        $params = [
-            'w'   => $width,
-            'h'   => $height,
+        $params = array_filter([
+            'w'   => $width ?: null,
+            'h'   => $height ?: null,
             'fit' => $this->getFit(),
             'fm'  => $this->format,
-        ];
+        ]);
 
         $cacheDisk = config('glide.cache_disk');
         $isRemoteCache = is_string($cacheDisk)

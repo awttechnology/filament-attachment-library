@@ -123,10 +123,16 @@ class AttachmentViewModel implements Wireable
 
     public function thumbnailUrl(): ?string
     {
-        return match(Glide::imageIsSupported($this->attachment->full_path)) {
-            true => Resizer::src($this->attachment)->height(320)->resize()['url'] ?? null,
-            default => $this->attachment->url,
-        };
+        return Cache::remember(
+            'attachment-thumbnail-url:' . $this->id . ':h320',
+            now()->addDay(),
+            function () {
+                if (!Glide::imageIsSupported($this->attachment->full_path)) {
+                    return $this->attachment->url;
+                }
+                return Resizer::src($this->attachment)->height(320)->resize()['url'] ?? null;
+            }
+        );
     }
 
     public function toLivewire()
