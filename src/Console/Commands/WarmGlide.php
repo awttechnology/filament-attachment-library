@@ -18,6 +18,7 @@ class WarmGlide extends Command
     protected $signature = 'glide:warm
                             {--skip-existing : Skip attachments already present in the thumbnail cache}
                             {--preset= : Also warm a named Glide preset for each attachment}
+                            {--path= : Only warm attachments whose path starts with this prefix}
                             {--chunk=100 : Batch size passed to chunkById}';
 
     /**
@@ -40,7 +41,9 @@ class WarmGlide extends Command
             return self::FAILURE;
         }
 
-        $total = Attachment::where('mime_type', 'LIKE', 'image/%')->count();
+        $total = Attachment::where('mime_type', 'LIKE', 'image/%')
+            ->when($this->option('path'), fn ($q) => $q->where('path', 'LIKE', $this->option('path') . '%'))
+            ->count();
         $this->info("Warming Glide cache for {$total} image attachment(s)...");
 
         $bar     = $this->output->createProgressBar($total);
@@ -49,6 +52,7 @@ class WarmGlide extends Command
         $failed  = 0;
 
         Attachment::where('mime_type', 'LIKE', 'image/%')
+            ->when($this->option('path'), fn ($q) => $q->where('path', 'LIKE', $this->option('path') . '%'))
             ->orderBy('id')
             ->chunkById($chunk, function ($attachments) use ($preset, &$warmed, &$skipped, &$failed, $bar) {
                 foreach ($attachments as $attachment) {
