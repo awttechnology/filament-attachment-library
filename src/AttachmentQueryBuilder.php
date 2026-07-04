@@ -37,6 +37,23 @@ class AttachmentQueryBuilder extends Builder
     }
 
     /**
+     * Filter files by reversing a public URL back to its path/name/extension columns.
+     * Avoids full-table fetches when looking up an attachment by URL.
+     */
+    public function whereUrl(string $url): static
+    {
+        $urlPath = ltrim(parse_url($url, PHP_URL_PATH), '/');
+        $folder  = pathinfo($urlPath, PATHINFO_DIRNAME);
+        $folder  = ($folder === '.' || $folder === '') ? '' : $folder;
+        $name    = pathinfo($urlPath, PATHINFO_FILENAME);
+        $ext     = pathinfo($urlPath, PATHINFO_EXTENSION);
+
+        return $this->where('path', '=', $folder)
+            ->where('name', '=', $name)
+            ->where('extension', '=', $ext);
+    }
+
+    /**
      * Filter files by filename DTO.
      */
     public function whereFilename(Filename $filename): static

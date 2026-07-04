@@ -216,6 +216,11 @@ class Attachment extends Model
         );
     }
 
+    public static function findByUrl(string $url): ?static
+    {
+        return static::query()->whereUrl($url)->first();
+    }
+
     public static function findOrdered(array $values, string $column = 'id'): Collection
     {
         $idPositions = array_flip($values);
