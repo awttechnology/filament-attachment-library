@@ -14,8 +14,8 @@ return new class extends Migration
         Schema::create('attachments', function (Blueprint $table) {
             $table->id();
             $table->string('name');
-            $table->string('extension');
-            $table->string('disk');
+            $table->string('extension', 32);
+            $table->string('disk', 64);
             $table->string('mime_type');
             $table->string('path')->nullable();
             $table->integer('size');
@@ -26,6 +26,13 @@ return new class extends Migration
             $table->string('created_by')->nullable();
             $table->string('updated_by')->nullable();
             $table->timestamps();
+
+            // Serves whereDisk()->wherePath() (updateFiles, directoriesFromDatabase, file()).
+            $table->index(['disk', 'path'], 'attachments_disk_path_index');
+            // Serves whereFilename()/whereUrl() (path+name+extension) and the browser's path filter.
+            $table->index(['path', 'name', 'extension'], 'attachments_path_name_extension_index');
+            // Serves the mime_type prefix filter (browser mime, glide:warm 'image/%').
+            $table->index('mime_type', 'attachments_mime_type_index');
         });
     }
 

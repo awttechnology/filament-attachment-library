@@ -93,9 +93,15 @@ class AttachmentManager
     {
         $hidden = Config::get('attachment-library.hidden_directories', []);
 
+        $prefix = $path === null ? null : $path . '/';
+
+        // Only fetch paths under the requested prefix. The LIKE narrows rows at the
+        // DB (LIKE wildcards in folder names may over-match, so the precise
+        // str_starts_with filter below remains the exact gate).
         $allPaths = $this->attachmentClass::whereDisk($this->disk)
             ->whereNotNull('path')
             ->where('path', '!=', '')
+            ->when($prefix !== null, fn ($query) => $query->where('path', 'LIKE', $prefix . '%'))
             ->distinct()
             ->pluck('path');
 
@@ -105,7 +111,6 @@ class AttachmentManager
                 ->unique()
                 ->values();
         } else {
-            $prefix = $path . '/';
             $directoryPaths = $allPaths
                 ->filter(fn ($p) => str_starts_with($p, $prefix))
                 ->map(fn ($p) => $path . '/' . explode('/', substr($p, strlen($prefix)))[0])
@@ -244,6 +249,9 @@ class AttachmentManager
         }
         $disk->delete($attachment->full_path);
         $disk->put($path, $file->getContent());
+        // Clear caches keyed on the old file (dimensions/metadata/thumbnail) before
+        // the update so a same-named replacement does not serve stale values.
+        $attachment->forgetCaches();
         $attachment->update([
             'name'      => $filename->name,
             'extension' => $filename->extension,
@@ -306,10 +314,28 @@ class AttachmentManager
             throw new DestinationAlreadyExistsException();
         }
         $disk->move($currentPath, $newPath);
-        $attachments = $this->attachmentClass::whereDisk($this->disk)->whereInPath($currentPath)->get();
-        foreach ($attachments as $attachment) {
-            $attachment->update(['path' => str_replace($currentPath, $newPath, $attachment->path)]);
+
+        // Rewrite the path prefix for every affected row in a single UPDATE rather
+        // than loading and saving each attachment individually. Mass updates skip
+        // model events, so the id-keyed thumbnail cache is invalidated explicitly
+        // (ids survive the rename; the cached URL would otherwise point at the old
+        // path). Ids are captured before the update, since whereInPath no longer
+        // matches afterwards.
+        $ids = $this->attachmentClass::whereDisk($this->disk)->whereInPath($currentPath)->pluck('id');
+
+        $connection = $this->attachmentClass::query()->getConnection();
+        $replace = 'REPLACE(path, '
+            . $connection->getPdo()->quote($currentPath) . ', '
+            . $connection->getPdo()->quote($newPath) . ')';
+
+        $this->attachmentClass::whereDisk($this->disk)
+            ->whereInPath($currentPath)
+            ->update(['path' => $connection->raw($replace)]);
+
+        foreach ($ids as $id) {
+            Cache::forget('attachment-thumbnail-url:' . $id . ':h320');
         }
+
         return new Directory($newPath);
     }
 

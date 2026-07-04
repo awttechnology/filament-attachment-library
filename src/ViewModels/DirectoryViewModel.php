@@ -21,6 +21,17 @@ class DirectoryViewModel
         $this->fullPath = $directory->fullPath;
     }
 
+    /**
+     * Pre-seed the item count so itemCount() does not have to query per directory.
+     * Used by the browser to inject counts computed in a single grouped query.
+     */
+    public function setItemCount(int $count): static
+    {
+        $this->itemCount = $count;
+
+        return $this;
+    }
+
     public function itemCount(): int
     {
         $class = config('attachment-library.class_mapping.attachment');

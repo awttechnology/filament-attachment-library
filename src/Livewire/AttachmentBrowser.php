@@ -343,7 +343,7 @@ class AttachmentBrowser extends Component implements HasActions, HasForms
         $sortColumn = Str::beforeLast($this->sortBy, '_');
         $sortDirection = Str::afterLast($this->sortBy, '_');
 
-        return AttachmentManager::directories($this->getCurrentPath())
+        $directories = AttachmentManager::directories($this->getCurrentPath())
             ->when($this->search, function (Collection $collection) {
                 return $collection->filter(fn (Directory $directory) => str_contains(strtolower($directory->name), strtolower($this->search)));
             })
@@ -354,7 +354,20 @@ class AttachmentBrowser extends Component implements HasActions, HasForms
                 return $sortDirection === 'desc'
                     ? $collection->sortByDesc('name')
                     : $collection->sortBy('name');
-            })->map(fn (Directory $directory) => new DirectoryViewModel($directory));
+            });
+
+        // Resolve every directory's item count in a single grouped query instead
+        // of one COUNT per directory (DirectoryViewModel::itemCount()).
+        $counts = Attachment::query()
+            ->whereIn('path', $directories->map(fn (Directory $directory) => $directory->fullPath)->all())
+            ->groupBy('path')
+            ->selectRaw('path, count(*) as aggregate')
+            ->pluck('aggregate', 'path');
+
+        return $directories->map(
+            fn (Directory $directory) => (new DirectoryViewModel($directory))
+                ->setItemCount((int) ($counts[$directory->fullPath] ?? 0))
+        );
     }
 
     /**

@@ -1,0 +1,58 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    /**
+     * Add indexes to support the columns queried by AttachmentQueryBuilder
+     * (whereDisk, wherePath, whereFilename, whereUrl) and the mime_type filter.
+     *
+     * Existing installs already ran create_attachments_table without indexes;
+     * this brings them in line with fresh installs. Guarded so it is safe to
+     * re-run and so it skips indexes already present.
+     */
+    public function up(): void
+    {
+        Schema::table('attachments', function (Blueprint $table) {
+            if (!Schema::hasIndex('attachments', 'attachments_disk_path_index')) {
+                $table->index(['disk', 'path'], 'attachments_disk_path_index');
+            }
+
+            if (!Schema::hasIndex('attachments', 'attachments_path_name_extension_index')) {
+                $table->index(['path', 'name', 'extension'], 'attachments_path_name_extension_index');
+            }
+
+            if (!Schema::hasIndex('attachments', 'attachments_mime_type_index')) {
+                $table->index('mime_type', 'attachments_mime_type_index');
+            }
+        });
+
+        if (Schema::hasColumn('attachables', 'collection')
+            && !Schema::hasIndex('attachables', 'attachables_collection_index')) {
+            Schema::table('attachables', function (Blueprint $table) {
+                $table->index('collection', 'attachables_collection_index');
+            });
+        }
+    }
+
+    /**
+     * Reverse the migrations.
+     */
+    public function down(): void
+    {
+        Schema::table('attachments', function (Blueprint $table) {
+            $table->dropIndex('attachments_disk_path_index');
+            $table->dropIndex('attachments_path_name_extension_index');
+            $table->dropIndex('attachments_mime_type_index');
+        });
+
+        if (Schema::hasColumn('attachables', 'collection')) {
+            Schema::table('attachables', function (Blueprint $table) {
+                $table->dropIndex('attachables_collection_index');
+            });
+        }
+    }
+};

@@ -13,6 +13,13 @@ use League\Glide\ServerFactory;
 class GlideManager
 {
     /**
+     * Memoized Glide server. Config is stable within a request, so the server —
+     * and the Flysystem drivers it resolves — is built once and reused rather
+     * than rebuilt on every server() call (imageIsSupported + resize + controller).
+     */
+    protected ?Server $server = null;
+
+    /**
      * Build the Glide server, resolving source and cache disk names to Flysystem
      * adapters so remote disks (e.g. BunnyCDN) are read and written correctly.
      *
@@ -21,13 +28,17 @@ class GlideManager
      */
     public function server(): Server
     {
+        if ($this->server !== null) {
+            return $this->server;
+        }
+
         $source = config('glide.source');
 
         if (is_string($source)) {
             $source = Storage::disk($source)->getDriver();
         }
 
-        return ServerFactory::create([
+        return $this->server = ServerFactory::create([
             'driver'              => $this->driver(),
             'source'              => $source,
             'cache'               => $this->cacheDisk()->getDriver(),

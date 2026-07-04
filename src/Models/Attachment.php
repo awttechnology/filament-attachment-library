@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphToMany;
 use Illuminate\Database\Query\Builder;
+use Illuminate\Support\Facades\Cache;
 use Symfony\Component\HttpFoundation\Response;
 use AwtTechnology\FilamentAttachmentLibrary\AttachmentQueryBuilder;
 use AwtTechnology\FilamentAttachmentLibrary\Database\Factories\AttachmentFactory;
@@ -72,8 +73,25 @@ class Attachment extends Model
         parent::boot();
 
         static::updated(function (Attachment $attachment) {
-            \Illuminate\Support\Facades\Cache::forget('attachment-thumbnail-url:' . $attachment->id . ':h320');
+            Cache::forget('attachment-thumbnail-url:' . $attachment->id . ':h320');
         });
+
+        static::deleted(function (Attachment $attachment) {
+            $attachment->forgetCaches();
+        });
+    }
+
+    /**
+     * Forget every cache entry derived from this attachment's file: the h320
+     * thumbnail URL, the cached image dimensions (getImageSizes), and the
+     * file-metadata adapter cache. Call when the file is deleted or replaced so
+     * a same-named replacement does not serve stale dimensions/metadata.
+     */
+    public function forgetCaches(): void
+    {
+        Cache::forget('attachment-thumbnail-url:' . $this->id . ':h320');
+        Cache::forget('attachment-manager-' . hash('sha256', $this->full_path));
+        Cache::forget('metadata-adapter-' . hash('sha256', $this->absolute_path));
     }
 
     /**

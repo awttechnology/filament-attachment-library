@@ -43,8 +43,9 @@ class AttachmentLibraryServiceProvider extends ServiceProvider
         );
         $this->app->bind('attachment.manager', $attachmentManagerClass);
 
-        // Bind Glide services.
-        $this->app->bind('attachment.glide.manager', GlideManager::class);
+        // Bind Glide services. GlideManager is a singleton so its memoized Glide
+        // server (and resolved Flysystem drivers) is reused across a request.
+        $this->app->singleton('attachment.glide.manager', GlideManager::class);
         $this->app->bind(Server::class, fn () => app('attachment.glide.manager')->server());
         $this->app->bind('attachment.resizer', fn () => new Resizer(config('glide.sizes')));
     }
