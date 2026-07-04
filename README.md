@@ -296,6 +296,22 @@ $url        = AttachmentManager::getUrl($attachment);
 $dirs       = AttachmentManager::directories('images');
 ```
 
+### URL-based attachment lookup
+
+`Attachment::findByUrl()` and the `whereUrl()` query scope reverse a public URL back to its `path`, `name`, and `extension` columns so the lookup hits an indexed query instead of loading the entire table into PHP.
+
+```php
+use AwtTechnology\FilamentAttachmentLibrary\Models\Attachment;
+
+// Returns the matching Attachment or null — no full-table fetch
+$attachment = Attachment::findByUrl('https://cdn.example.com/hotels/hero.jpg');
+
+// The underlying query scope is also available directly
+$attachment = Attachment::query()->whereUrl($url)->first();
+```
+
+This is the right tool when you have a stored CDN URL and need the corresponding `Attachment` record, for example when syncing data from an external system that only recorded the URL.
+
 ---
 
 ## Artisan commands
@@ -306,7 +322,33 @@ php artisan glide:clear
 
 # Show Glide cache statistics
 php artisan glide:stats
+
+# Pre-warm the Glide thumbnail cache for all image attachments
+php artisan glide:warm
 ```
+
+### `glide:warm`
+
+Iterates every `image/*` attachment and generates its h320 thumbnail, writing the result to the Glide cache disk and storing the URL in the Laravel cache. Running this after a fresh deploy or cache flush prevents the first open of the attachment picker from triggering slow on-demand resizes for every image.
+
+| Option | Default | Description |
+|---|---|---|
+| `--skip-existing` | — | Skip any attachment whose thumbnail URL is already in the cache |
+| `--preset=<name>` | — | Also warm a named preset from `config('glide.presets')` for each attachment |
+| `--chunk=<n>` | `100` | Batch size passed to `chunkById` |
+
+```bash
+# Warm only attachments not yet cached
+php artisan glide:warm --skip-existing
+
+# Warm the h320 thumbnail and a custom preset
+php artisan glide:warm --preset=hero
+
+# Use a smaller batch size to reduce peak memory
+php artisan glide:warm --chunk=50
+```
+
+The command prints a progress bar while running and finishes with a summary table of warmed / skipped / failed counts. If a preset name is given that does not exist in `config('glide.presets')`, the command exits immediately with an error.
 
 ---
 
