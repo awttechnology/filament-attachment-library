@@ -323,14 +323,19 @@ class AttachmentManager
         // matches afterwards.
         $ids = $this->attachmentClass::whereDisk($this->disk)->whereInPath($currentPath)->pluck('id');
 
+        // Prefix-safe: keep everything after the old prefix and prepend the new
+        // one, instead of REPLACE() which substitutes the substring anywhere in
+        // the path (corrupting e.g. products/x/products).
         $connection = $this->attachmentClass::query()->getConnection();
-        $replace = 'REPLACE(path, '
-            . $connection->getPdo()->quote($currentPath) . ', '
-            . $connection->getPdo()->quote($newPath) . ')';
+        $quotedNewPath = $connection->getPdo()->quote($newPath);
+        $remainder = 'SUBSTR(path, ' . (strlen($currentPath) + 1) . ')';
+        $expression = in_array($connection->getDriverName(), ['mysql', 'mariadb'], true)
+            ? "CONCAT({$quotedNewPath}, {$remainder})"
+            : "{$quotedNewPath} || {$remainder}";
 
         $this->attachmentClass::whereDisk($this->disk)
             ->whereInPath($currentPath)
-            ->update(['path' => $connection->raw($replace)]);
+            ->update(['path' => $connection->raw($expression)]);
 
         foreach ($ids as $id) {
             Cache::forget('attachment-thumbnail-url:' . $id . ':h320');
