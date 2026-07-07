@@ -492,7 +492,17 @@ class AttachmentManager
 
     public function isType(Attachment $file, string $type): bool
     {
-        return in_array($file->mime_type, $this->attachmentTypeMapping[$type] ?? []);
+        return $this->mimeTypeIsType($file->mime_type, $type);
+    }
+
+    /**
+     * Mime-mapping check that needs no Attachment model — lets view models
+     * rehydrated from a Livewire payload answer isImage()/isVideo() without
+     * a database load.
+     */
+    public function mimeTypeIsType(?string $mimeType, string $type): bool
+    {
+        return in_array($mimeType, $this->attachmentTypeMapping[$type] ?? [], true);
     }
 
     public function getType(Attachment $file): ?string

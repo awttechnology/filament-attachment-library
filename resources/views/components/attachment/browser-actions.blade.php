@@ -16,38 +16,38 @@
         <x-filament::dropdown.list.item
             class="flex md:hidden"
             x-on:click="
-                $dispatch('highlight-attachment', { id: {{ json_encode($attachment->attachment->id) }} });
+                $dispatch('highlight-attachment', { id: {{ json_encode($attachment->id) }} });
                 $dispatch('open-modal', { id: 'attachment-info-modal' });
             "
         >
             {{ __('filament-attachment-library::views.actions.attachment.view') }}
         </x-filament::dropdown.list.item>
 
-        <x-filament::dropdown.list.item tag="a" :href="$attachment->attachment->url" target="_blank">
+        <x-filament::dropdown.list.item tag="a" :href="$attachment->url" target="_blank">
             {{ __('filament-attachment-library::views.actions.attachment.open') }}
         </x-filament::dropdown.list.item>
 
         <x-filament::dropdown.list.item
-            wire:click="mountAction('editAttachmentAction', { attachment_id: {{ json_encode($attachment->attachment->id) }}})"
+            wire:click="mountAction('editAttachmentAction', { attachment_id: {{ json_encode($attachment->id) }}})"
         >
             {{ __('filament-attachment-library::views.actions.attachment.edit') }}
         </x-filament::dropdown.list.item>
 
         <x-filament::dropdown.list.item
-            wire:click="mountAction('moveAttachmentAction', { attachment_id: {{ json_encode($attachment->attachment->id) }}})"
+            wire:click="mountAction('moveAttachmentAction', { attachment_id: {{ json_encode($attachment->id) }}})"
         >
             {{ __('filament-attachment-library::views.actions.attachment.move') }}
         </x-filament::dropdown.list.item>
 
         <x-filament::dropdown.list.item
-            wire:click="mountAction('replaceAttachmentAction', { attachment_id: {{ json_encode($attachment->attachment->id) }}})"
+            wire:click="mountAction('replaceAttachmentAction', { attachment_id: {{ json_encode($attachment->id) }}})"
         >
             {{ __('filament-attachment-library::views.actions.attachment.replace') }}
         </x-filament::dropdown.list.item>
 
         <x-filament::dropdown.list.item
             color="danger"
-            wire:click="mountAction('deleteAttachment', { attachment_id: {{ json_encode($attachment->attachment->id) }}})"
+            wire:click="mountAction('deleteAttachment', { attachment_id: {{ json_encode($attachment->id) }}})"
         >
             {{ __('filament-attachment-library::views.actions.attachment.delete') }}
         </x-filament::dropdown.list.item>

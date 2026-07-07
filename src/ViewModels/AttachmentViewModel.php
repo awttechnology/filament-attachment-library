@@ -4,18 +4,24 @@ namespace AwtTechnology\FilamentAttachmentLibrary\ViewModels;
 
 use Carbon\CarbonInterface;
 use Illuminate\Foundation\Auth\User;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Str;
 use Livewire\Wireable;
 use AwtTechnology\FilamentAttachmentLibrary\Enums\AttachmentType;
+use AwtTechnology\FilamentAttachmentLibrary\Facades\AttachmentManager;
 use AwtTechnology\FilamentAttachmentLibrary\Facades\Glide;
 use AwtTechnology\FilamentAttachmentLibrary\Facades\Resizer;
 use AwtTechnology\FilamentAttachmentLibrary\Models\Attachment;
 
 class AttachmentViewModel implements Wireable
 {
-    public Attachment $attachment;
+    /**
+     * Loaded model when constructed from one (or after model() lazy-loads it).
+     * Null for payload-hydrated instances — display fields carry the state.
+     */
+    public ?Attachment $attachment = null;
 
     public int $id;
 
@@ -55,8 +61,15 @@ class AttachmentViewModel implements Wireable
 
     public ?string $dimensions = null;
 
-    public function __construct(Attachment $attachment)
+    public function __construct(Attachment|array $source)
     {
+        if (is_array($source)) {
+            $this->fillFromPayload($source);
+            return;
+        }
+
+        $attachment = $source;
+
         $userModel = Config::get('filament-attachment-library.user_model', User::class);
         $usernameProperty = Config::get('filament-attachment-library.username_property', 'name');
 
@@ -85,6 +98,39 @@ class AttachmentViewModel implements Wireable
         $this->caption = $attachment->caption;
     }
 
+    private function fillFromPayload(array $payload): void
+    {
+        $this->id = $payload['id'];
+        $this->name = $payload['name'];
+        $this->filename = $payload['filename'];
+        $this->url = $payload['url'];
+        $this->path = $payload['path'];
+        $this->extension = $payload['extension'];
+        $this->mimeType = $payload['mimeType'];
+        $this->size = $payload['size'];
+        $this->createdBy = $payload['createdBy'];
+        $this->createdAt = $payload['createdAt'] ? Carbon::parse($payload['createdAt']) : null;
+        $this->updatedBy = $payload['updatedBy'];
+        $this->updatedAt = $payload['updatedAt'] ? Carbon::parse($payload['updatedAt']) : null;
+        $this->title = $payload['title'];
+        $this->description = $payload['description'];
+        $this->alt = $payload['alt'];
+        $this->caption = $payload['caption'];
+        $this->bits = $payload['bits'];
+        $this->channels = $payload['channels'];
+        $this->dimensions = $payload['dimensions'];
+    }
+
+    /**
+     * The Eloquent model, loaded on first use. Payload-hydrated view models
+     * only pay this query when something genuinely needs the model (e.g. a
+     * thumbnail cache miss); plain re-renders never do.
+     */
+    public function model(): Attachment
+    {
+        return $this->attachment ??= Attachment::findOrFail($this->id);
+    }
+
     public function isAttachment(): bool
     {
         return true;
@@ -97,12 +143,12 @@ class AttachmentViewModel implements Wireable
 
     public function isImage(): bool
     {
-        return $this->attachment->isType(AttachmentType::PREVIEWABLE_IMAGE);
+        return AttachmentManager::mimeTypeIsType($this->mimeType, AttachmentType::PREVIEWABLE_IMAGE);
     }
 
     public function isVideo(): bool
     {
-        return $this->attachment->isType(AttachmentType::PREVIEWABLE_VIDEO);
+        return AttachmentManager::mimeTypeIsType($this->mimeType, AttachmentType::PREVIEWABLE_VIDEO);
     }
 
     public function isDocument(): bool
@@ -112,7 +158,7 @@ class AttachmentViewModel implements Wireable
 
     public function isSelected(array $selected): bool
     {
-        return in_array($this->attachment->id, $selected);
+        return in_array($this->id, $selected);
     }
 
     /**
@@ -145,17 +191,18 @@ class AttachmentViewModel implements Wireable
             now()->addDay(),
             function () {
                 try {
-                    if (!Glide::imageIsSupported($this->attachment->full_path)) {
-                        return $this->attachment->url;
+                    $fullPath = implode('/', array_filter([$this->path, $this->filename]));
+                    if (!Glide::imageIsSupported($fullPath)) {
+                        return $this->url;
                     }
-                    return Resizer::src($this->attachment)->height(320)->resize()['url'] ?? null;
+                    return Resizer::src($this->model())->height(320)->resize()['url'] ?? null;
                 } catch (\Throwable $exception) {
                     // A single unreadable image must degrade to its original URL,
                     // not take down the whole browser page. The fallback is cached
                     // like a real thumbnail so a broken file is not retried per
                     // render; replacing the file clears the key via forgetCaches().
                     report($exception);
-                    return $this->attachment->url;
+                    return $this->url;
                 }
             }
         );
@@ -163,17 +210,40 @@ class AttachmentViewModel implements Wireable
 
     public function toLivewire()
     {
-        return [ 'id' => $this->attachment->id ];
+        return [
+            'id'          => $this->id,
+            'name'        => $this->name,
+            'filename'    => $this->filename,
+            'url'         => $this->url,
+            'path'        => $this->path,
+            'extension'   => $this->extension,
+            'mimeType'    => $this->mimeType,
+            'size'        => $this->size,
+            'createdBy'   => $this->createdBy,
+            'createdAt'   => $this->createdAt?->toIso8601String(),
+            'updatedBy'   => $this->updatedBy,
+            'updatedAt'   => $this->updatedAt?->toIso8601String(),
+            'title'       => $this->title,
+            'description' => $this->description,
+            'alt'         => $this->alt,
+            'caption'     => $this->caption,
+            'bits'        => $this->bits,
+            'channels'    => $this->channels,
+            'dimensions'  => $this->dimensions,
+        ];
     }
 
     public static function fromLivewire($value): ?AttachmentViewModel
     {
-        $attachment = Attachment::find($value['id']);
-
-        if (!$attachment) {
-            return null;
+        // Full payload: rebuild with zero queries.
+        if (isset($value['name'])) {
+            return new AttachmentViewModel($value);
         }
 
-        return new AttachmentViewModel($attachment);
+        // Legacy id-only payload (in-flight components from before this
+        // change): fall back to a model load.
+        $attachment = Attachment::find($value['id'] ?? null);
+
+        return $attachment ? new AttachmentViewModel($attachment) : null;
     }
 }
