@@ -8,6 +8,7 @@ A standalone Filament 5 attachment library with BunnyCDN support and Glide image
 - **Object-storage directories** — `createDirectory()` always passes `CREATE_PARENT_DIRECTORIES` so virtual-prefix storage (BunnyCDN, S3) works without errors.
 - **Hidden directories** — configure folders to exclude from the browser UI via `attachment-library.hidden_directories`.
 - **Cacheable GD metadata** — `CacheableGd` stores image metadata as plain arrays so PHP's cache driver can serialise/deserialise them correctly.
+- **Fast browser rendering** — image support is decided from the file extension (no Glide render per item), thumbnails and metadata failures are cached, uploader names resolve in one query per page, and view models rehydrate from their Livewire payload without database reads.
 
 ---
 
