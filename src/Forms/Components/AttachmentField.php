@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Relations\MorphToMany;
 use Illuminate\Support\Collection;
 use ReflectionProperty;
 use AwtTechnology\FilamentAttachmentLibrary\ViewModels\AttachmentViewModel;
+use AwtTechnology\FilamentAttachmentLibrary\Facades\AttachmentManager;
 use AwtTechnology\FilamentAttachmentLibrary\Facades\Glide;
 use AwtTechnology\FilamentAttachmentLibrary\Models\Attachment;
 
@@ -142,6 +143,35 @@ class AttachmentField extends Field
                 );
             }
         );
+
+        return $this;
+    }
+
+    /**
+     * Store the attachment's public URL in the model column instead of its id.
+     *
+     * Single-select fields only. Replaces the fragile manual
+     * dehydrateStateUsing/formatStateUsing recipe: rehydration uses the indexed
+     * AttachmentManager::findByUrl() lookup instead of loading the whole table.
+     */
+    public function storeAsUrl(): static
+    {
+        $this->dehydrateStateUsing(function ($state) {
+            $id = $state instanceof Collection ? $state->first() : $state;
+
+            return blank($id) ? null : Attachment::find($id)?->url;
+        });
+
+        $this->formatStateUsing(function ($state) {
+            if (blank($state)) {
+                return null;
+            }
+            if (is_numeric($state)) {
+                return (int) $state;
+            }
+
+            return AttachmentManager::findByUrl($state)?->id;
+        });
 
         return $this;
     }

@@ -26,6 +26,8 @@ abstract class TestCase extends Orchestra
 
         Storage::fake('attachments');
         $this->runPackageMigrations();
+
+        $this->app['view']->addLocation(__DIR__ . '/Fixtures/views');
     }
 
     /**

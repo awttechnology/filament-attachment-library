@@ -231,8 +231,7 @@ Use `->updateAttachmentField()` to automatically set a sibling `AttachmentField`
 AttachmentField::make('pdf_file')
     ->pdf()
     ->directory('brochures')
-    ->dehydrateStateUsing(fn ($state) => $state ? Attachment::find($state)?->url : null)
-    ->formatStateUsing(fn ($state) => $state ? Attachment::get()->first(fn ($a) => $a->url === $state)?->id : null),
+    ->storeAsUrl(),
 
 RemoteFileFetcher::make('fetch_pdf')
     ->updateAttachmentField('pdf_file')  // name of the sibling AttachmentField
@@ -240,6 +239,12 @@ RemoteFileFetcher::make('fetch_pdf')
     ->folder('brochures')
     ->fileType('pdf'),
 ```
+
+> `storeAsUrl()` stores the attachment's public URL in the column and resolves it
+> back to the attachment on load via an indexed lookup. Single-select fields only.
+> It replaces the previous `dehydrateStateUsing`/`formatStateUsing` recipe, which
+> loaded the entire attachments table and silently produced `null` on any URL
+> mismatch (the field then appeared to "lose" its value).
 
 The `attachment_id` returned from the fetch is written directly to the sibling field's Livewire state, so the `AttachmentField` reflects the new file without a page reload.
 
