@@ -244,11 +244,17 @@ class AttachmentManager
         $this->validateBasename($filename);
         $disk = $this->getFilesystem();
         $path = implode('/', array_filter([$attachment->path, $filename]));
-        if ($disk->exists($path) && $path !== $attachment->full_path) {
+        $oldPath = $attachment->full_path;
+        if ($disk->exists($path) && $path !== $oldPath) {
             throw new DestinationAlreadyExistsException();
         }
-        $disk->delete($attachment->full_path);
+        // Write the replacement before deleting the original so a failed write
+        // never loses the existing file. A same-named replacement overwrites in
+        // place and needs no delete at all.
         $disk->put($path, $file->getContent());
+        if ($path !== $oldPath) {
+            $disk->delete($oldPath);
+        }
         // Clear caches keyed on the old file (dimensions/metadata/thumbnail) before
         // the update so a same-named replacement does not serve stale values.
         $attachment->forgetCaches();
