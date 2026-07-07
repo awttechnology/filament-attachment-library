@@ -2,7 +2,6 @@
 
 namespace AwtTechnology\FilamentAttachmentLibrary\Glide;
 
-use Exception;
 use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
@@ -103,18 +102,41 @@ class GlideManager
         return sprintf("%.{$decimals}f", $bytes / (1024 ** $factor)) . ' ' . $size[$factor];
     }
 
+    /**
+     * Whether Glide can produce a variant for this path, decided from the
+     * file extension against the driver's supported formats.
+     *
+     * Deliberately does NOT probe the file: the old makeImage() probe
+     * generated a full-size variant on the cache disk (a remote write per
+     * uncached item) just to answer a boolean. Files that carry a supported
+     * extension but fail to decode are handled downstream — thumbnailUrl()
+     * catches the resize failure and caches the original URL for a day.
+     */
     public function imageIsSupported(string $path, array $params = []): bool
     {
-        $key = 'glide-image-supported:' . hash('sha256', $path . json_encode($params));
+        $extension = strtoupper(pathinfo($path, PATHINFO_EXTENSION));
 
-        return Cache::remember($key, now()->addMinutes(5), function () use ($path, $params) {
-            try {
-                $this->server()->makeImage($path, $params);
-                return true;
-            } catch (Exception) {
-                return false;
-            }
-        });
+        if ($extension === '') {
+            return false;
+        }
+
+        $formats = $this->getSupportedImageFormats();
+
+        // Handle JPG/JPEG aliasing: if JPG is requested but not in the list,
+        // check for JPEG; if JPEG is requested but not in the list, check for JPG.
+        if (in_array($extension, $formats, true)) {
+            return true;
+        }
+
+        if ($extension === 'JPG' && in_array('JPEG', $formats, true)) {
+            return true;
+        }
+
+        if ($extension === 'JPEG' && in_array('JPG', $formats, true)) {
+            return true;
+        }
+
+        return false;
     }
 
     /**
