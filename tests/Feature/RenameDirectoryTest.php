@@ -25,3 +25,14 @@ it('does not touch sibling directories sharing the name as a prefix', function (
 
     expect(Attachment::where('name', 'keep')->value('path'))->toBe('products-archive');
 });
+
+it('renames unicode-named directories without corrupting descendant paths', function () {
+    Storage::disk('attachments')->makeDirectory('café');
+    makeAttachment(['path' => 'café', 'name' => 'a']);
+    makeAttachment(['path' => 'café/x', 'name' => 'b']);
+
+    AttachmentManager::renameDirectory('café', 'catalog');
+
+    expect(Attachment::pluck('path')->all())
+        ->toEqualCanonicalizing(['catalog', 'catalog/x']);
+});

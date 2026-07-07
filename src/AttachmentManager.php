@@ -328,7 +328,7 @@ class AttachmentManager
         // the path (corrupting e.g. products/x/products).
         $connection = $this->attachmentClass::query()->getConnection();
         $quotedNewPath = $connection->getPdo()->quote($newPath);
-        $remainder = 'SUBSTR(path, ' . (strlen($currentPath) + 1) . ')';
+        $remainder = 'SUBSTR(path, ' . (mb_strlen($currentPath, 'UTF-8') + 1) . ')';
         $expression = in_array($connection->getDriverName(), ['mysql', 'mariadb'], true)
             ? "CONCAT({$quotedNewPath}, {$remainder})"
             : "{$quotedNewPath} || {$remainder}";
