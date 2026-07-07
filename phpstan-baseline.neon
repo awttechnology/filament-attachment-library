@@ -1,0 +1,49 @@
+parameters:
+	ignoreErrors:
+		-
+			message: '#^Parameter \#1 \$view of function view expects view\-string\|null, string given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/AttachmentLibraryServiceProvider.php
+
+		-
+			message: '#^Parameter \#1 \$array of function array_unique expects an array of values castable to string, array\<int\|string, AwtTechnology\\FilamentAttachmentLibrary\\Enums\\DirectoryStrategies\> given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/AttachmentManager.php
+
+		-
+			message: '#^Trait AwtTechnology\\FilamentAttachmentLibrary\\Concerns\\HasAttachments is used zero times and is not analysed\.$#'
+			identifier: trait.unused
+			count: 1
+			path: src/Concerns/HasAttachments.php
+
+		-
+			message: '#^Invalid array key type float\.$#'
+			identifier: offsetAccess.invalidOffset
+			count: 1
+			path: src/Glide/GlideManager.php
+
+		-
+			message: '#^Parameter \#1 \$view of function view expects view\-string\|null, string given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Livewire/AttachmentBrowser.php
+
+		-
+			message: '#^Parameter \#1 \$view of function view expects view\-string\|null, string given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Livewire/AttachmentInfo.php
+
+		-
+			message: '#^Call to static method new\(\) on an unknown class AwtTechnology\\FilamentAttachmentLibrary\\Database\\Factories\\AttachmentFactory\.$#'
+			identifier: class.notFound
+			count: 1
+			path: src/Models/Attachment.php
+
+		-
+			message: '#^Parameter \#1 \$view of function view expects view\-string\|null, string given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/View/Components/Image.php
