@@ -417,23 +417,29 @@ class AttachmentBrowser extends Component implements HasActions, HasForms
         }
 
         $this->dispatch('highlight-attachment', null);
-        $this->reset();
+
+        // Reset only modal-scoped state. A blanket reset() also wiped basePath,
+        // currentPath, layout and the forms, breaking the next open of the modal.
+        $this->reset(['selected', 'statePath', 'multiple', 'mime', 'disableMimeFilter', 'search']);
     }
 
     #[On('open-attachment-modal')]
     public function openModal(?string $statePath = null, int|array|null $selected = null, ?bool $multiple = null, ?string $mime = null, ?bool $disableMimeFilter = null, ?string $directory = null): void
     {
         $this->statePath = $statePath;
-        $this->multiple = $multiple;
+        $this->multiple = $multiple ?? false;
         $this->mime = $mime;
-        $this->disableMimeFilter = $disableMimeFilter;
+        $this->disableMimeFilter = $disableMimeFilter ?? false;
 
         if ($directory !== null) {
             $this->currentPath = $this->normalizePath($directory);
         }
 
-        if ($selected) {
-            $this->selected = is_array($selected) ? $selected : [$selected];
-        }
+        // Always replace the selection: reopening for a field with no value must
+        // not inherit the previous field's selection.
+        $this->selected = collect(is_array($selected) ? $selected : [$selected])
+            ->filter()
+            ->values()
+            ->all();
     }
 }
