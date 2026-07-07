@@ -118,7 +118,7 @@ class AttachmentBrowser extends Component implements HasActions, HasForms
     public function mount(): void
     {
         if (!in_array($this->pageSize, self::PAGE_SIZES)) {
-            $this->pageSize = 1;
+            $this->pageSize = 25;
         }
 
         if (!in_array($this->layout, Layout::cases())) {
@@ -359,6 +359,7 @@ class AttachmentBrowser extends Component implements HasActions, HasForms
         // Resolve every directory's item count in a single grouped query instead
         // of one COUNT per directory (DirectoryViewModel::itemCount()).
         $counts = Attachment::query()
+            ->where('disk', Config::get('attachment-library.disk'))
             ->whereIn('path', $directories->map(fn (Directory $directory) => $directory->fullPath)->all())
             ->groupBy('path')
             ->selectRaw('path, count(*) as aggregate')
@@ -379,6 +380,7 @@ class AttachmentBrowser extends Component implements HasActions, HasForms
         $sortDirection = Str::afterLast($this->sortBy, '_');
 
         $attachments = Attachment::query()
+            ->where('disk', Config::get('attachment-library.disk'))
             ->when($this->search, function (Builder $query) {
                 $query->where('name', 'like', '%' . $this->search . '%');
             })
