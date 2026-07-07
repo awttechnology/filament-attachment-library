@@ -357,6 +357,15 @@ The command prints a progress bar while running and finishes with a summary tabl
 
 ---
 
+## Testing
+
+```bash
+composer test      # Pest test suite (Orchestra Testbench)
+composer analyse   # PHPStan level 5
+```
+
+---
+
 ## Extending
 
 Override the `AttachmentManager` by swapping the class in config:
