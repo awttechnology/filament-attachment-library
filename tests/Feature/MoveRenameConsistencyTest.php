@@ -18,6 +18,7 @@ it('restores the file when the database update fails during move', function () {
     Storage::disk('attachments')->assertExists('src/a.jpg');
     Storage::disk('attachments')->assertMissing('dst/a.jpg');
     expect($attachment->fresh()->path)->toBe('src');
+    expect($attachment->path)->toBe('src')->and($attachment->isDirty())->toBeFalse();
 });
 
 it('restores the file when the database update fails during rename', function () {
@@ -34,4 +35,5 @@ it('restores the file when the database update fails during rename', function ()
     Storage::disk('attachments')->assertExists('src/a.jpg');
     Storage::disk('attachments')->assertMissing('src/b.jpg');
     expect($attachment->fresh()->name)->toBe('a');
+    expect($attachment->name)->toBe('a')->and($attachment->isDirty())->toBeFalse();
 });

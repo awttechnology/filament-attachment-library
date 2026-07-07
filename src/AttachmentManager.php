@@ -295,6 +295,9 @@ class AttachmentManager
             // Database update failed: move the file back so filesystem and
             // database stay consistent, then rethrow.
             $disk->move($path, $originalPath);
+            // update() fills before saving, so a failed save leaves the model
+            // dirty with the rolled-back value — discard it to match the DB.
+            $file->refresh();
             throw $exception;
         }
     }
@@ -313,6 +316,9 @@ class AttachmentManager
             $file->update(['path' => $desiredPath]);
         } catch (\Throwable $exception) {
             $disk->move($path, $originalPath);
+            // update() fills before saving, so a failed save leaves the model
+            // dirty with the rolled-back value — discard it to match the DB.
+            $file->refresh();
             throw $exception;
         }
     }
