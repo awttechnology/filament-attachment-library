@@ -287,9 +287,16 @@ class AttachmentManager
         if ($disk->exists($path)) {
             throw new DestinationAlreadyExistsException();
         }
-        $disk->move($file->full_path, $path);
-        $file->update(['name' => $name]);
-        $file->save();
+        $originalPath = $file->full_path;
+        $disk->move($originalPath, $path);
+        try {
+            $file->update(['name' => $name]);
+        } catch (\Throwable $exception) {
+            // Database update failed: move the file back so filesystem and
+            // database stay consistent, then rethrow.
+            $disk->move($path, $originalPath);
+            throw $exception;
+        }
     }
 
     /** @throws DestinationAlreadyExistsException */
@@ -300,9 +307,14 @@ class AttachmentManager
         if ($disk->exists($path)) {
             throw new DestinationAlreadyExistsException();
         }
-        $disk->move($file->full_path, $path);
-        $file->update(['path' => $desiredPath]);
-        $file->save();
+        $originalPath = $file->full_path;
+        $disk->move($originalPath, $path);
+        try {
+            $file->update(['path' => $desiredPath]);
+        } catch (\Throwable $exception) {
+            $disk->move($path, $originalPath);
+            throw $exception;
+        }
     }
 
     /**
