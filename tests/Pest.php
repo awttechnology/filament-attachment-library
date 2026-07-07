@@ -37,10 +37,13 @@ function makeAttachment(array $attributes = []): Attachment
         'size'      => strlen($bytes),
     ], $attributes));
 
-    Storage::disk($attachment->disk)->put(
-        $attachment->full_path,
-        $bytes
-    );
+    // Only store file on disk if it's a configured disk (skip 'other' which is DB-only for tests)
+    if ($attachment->disk !== 'other') {
+        Storage::disk($attachment->disk)->put(
+            $attachment->full_path,
+            $bytes
+        );
+    }
 
     return $attachment;
 }
