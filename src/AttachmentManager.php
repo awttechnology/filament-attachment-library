@@ -128,11 +128,20 @@ class AttachmentManager
     {
         $ttl = Config::get('attachment-library.auto_sync_interval', 300);
         $cacheKey = 'attachment-library-last-sync:' . $this->disk . ':' . ($directory ?? '');
-        if (Cache::has($cacheKey)) {
+
+        // Cache::add is atomic: exactly one concurrent request wins the gate and
+        // syncs; the rest skip. Claiming before the work (not after) closes the
+        // window where several requests all saw a missing key and synced at once.
+        if (! Cache::add($cacheKey, true, $ttl)) {
             return;
         }
-        $this->updateFiles($directory);
-        Cache::put($cacheKey, true, $ttl);
+
+        try {
+            $this->updateFiles($directory);
+        } catch (\Throwable $exception) {
+            Cache::forget($cacheKey);
+            throw $exception;
+        }
     }
 
     public function updateFiles(?string $directory): void
