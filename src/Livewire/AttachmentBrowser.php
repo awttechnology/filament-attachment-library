@@ -382,7 +382,13 @@ class AttachmentBrowser extends Component implements HasActions, HasForms
         $attachments = Attachment::query()
             ->where('disk', Config::get('attachment-library.disk'))
             ->when($this->search, function (Builder $query) {
-                $query->where('name', 'like', '%' . $this->search . '%');
+                // Prefix match by default: 'term%' can use the name index,
+                // '%term%' forces a full scan. Set search_mode to 'contains'
+                // to restore substring matching.
+                $term = Config::get('filament-attachment-library.search_mode', 'prefix') === 'contains'
+                    ? '%' . $this->search . '%'
+                    : $this->search . '%';
+                $query->where('name', 'like', $term);
             })
             ->when(!$this->search, function (Builder $query) {
                 $query->where('path', $this->getCurrentPath());

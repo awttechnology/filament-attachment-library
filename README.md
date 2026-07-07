@@ -142,6 +142,15 @@ npm run build
 | `sizes` | see config | Named size ratios |
 | `formats` | `['webp', 'jpg']` | Output formats, tried in order |
 
+### `config/filament-attachment-library.php`
+
+| Key | Default | Description |
+|---|---|---|
+| `user_model` | `User::class` | User model used for showing user information in the browser |
+| `username_property` | `'name'` | Username property used for displaying usernames |
+| `upload_rules` | `[]` | Additional Laravel validation rules for file uploads |
+| `search_mode` | `'prefix'` | Browser search matching: `'prefix'` (indexed) or `'contains'` |
+
 ### Directory source
 
 By default the browser lists directories by reading the filesystem. Set `directory_source` to `'database'` to derive directories from the `path` column of existing attachment records instead — useful when the filesystem is remote or slow, as it avoids Flysystem I/O entirely.

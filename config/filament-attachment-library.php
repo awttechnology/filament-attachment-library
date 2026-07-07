@@ -19,4 +19,12 @@ return [
         // 'extensions:jpg,png',
     ],
 
+    /**
+     * How the browser's search box matches attachment names.
+     *
+     * 'prefix'   — name LIKE 'term%' (default; can use the name index)
+     * 'contains' — name LIKE '%term%' (matches anywhere; full scan on large tables)
+     */
+    'search_mode' => 'prefix',
+
 ];
