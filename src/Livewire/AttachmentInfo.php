@@ -43,7 +43,7 @@ class AttachmentInfo extends Component implements HasActions, HasForms
             return;
         }
 
-        $this->attachment = new AttachmentViewModel($attachment);
+        $this->attachment = (new AttachmentViewModel($attachment))->loadMetadata();
     }
 
     #[On('dehighlight-attachment')]

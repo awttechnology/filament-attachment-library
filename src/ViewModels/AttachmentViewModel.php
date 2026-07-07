@@ -83,18 +83,6 @@ class AttachmentViewModel implements Wireable
         $this->description = $attachment->description;
         $this->alt = $attachment->alt;
         $this->caption = $attachment->caption;
-
-        try {
-            if ($metadata = $attachment->metadata) { // @phpstan-ignore-line
-                $this->bits = $metadata->bits;
-                $this->channels = $metadata->channels;
-                $this->dimensions = "{$metadata->width}x{$metadata->height}";
-            }
-        } catch (\Throwable $exception) {
-            // If the backing file is missing or unreadable, we still want to display
-            // the attachment in the browser, just without its metadata (dimensions, bits, etc).
-            report($exception);
-        }
     }
 
     public function isAttachment(): bool
@@ -125,6 +113,29 @@ class AttachmentViewModel implements Wireable
     public function isSelected(array $selected): bool
     {
         return in_array($this->attachment->id, $selected);
+    }
+
+    /**
+     * Fill bits/channels/dimensions from the file's metadata. Deliberately not
+     * called from the constructor: only the info panel needs these, and on a
+     * cold cache the retrieval can mean downloading the whole file from the
+     * CDN — far too expensive to pay per grid item.
+     */
+    public function loadMetadata(): static
+    {
+        try {
+            if ($metadata = $this->attachment->metadata) { // @phpstan-ignore-line
+                $this->bits = $metadata->bits;
+                $this->channels = $metadata->channels;
+                $this->dimensions = "{$metadata->width}x{$metadata->height}";
+            }
+        } catch (\Throwable $exception) {
+            // A missing or unreadable file must not break the info panel;
+            // the attachment simply shows without dimensions.
+            report($exception);
+        }
+
+        return $this;
     }
 
     public function thumbnailUrl(): ?string
