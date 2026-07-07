@@ -17,7 +17,17 @@ abstract class MetadataAdapter
         return Cache::remember(
             implode('-', [$this->cacheKey, hash('sha256', $path)]),
             now()->addDay(),
-            fn () => $this->retrieve($file)
+            function () use ($file) {
+                try {
+                    return $this->retrieve($file);
+                } catch (\Throwable $exception) {
+                    // Cache the failure as false so a missing/corrupt file is
+                    // reported once per TTL, not re-read on every render.
+                    // forgetCaches() clears this key when the file is replaced.
+                    report($exception);
+                    return false;
+                }
+            }
         );
     }
 

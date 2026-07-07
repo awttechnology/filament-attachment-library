@@ -4,6 +4,7 @@ use AwtTechnology\FilamentAttachmentLibrary\Facades\Glide;
 use AwtTechnology\FilamentAttachmentLibrary\Facades\Resizer;
 use AwtTechnology\FilamentAttachmentLibrary\Livewire\AttachmentBrowser;
 use AwtTechnology\FilamentAttachmentLibrary\ViewModels\AttachmentViewModel;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 
@@ -25,4 +26,15 @@ it('renders the browser even when an image file is missing from disk', function 
     Livewire::test(AttachmentBrowser::class)
         ->assertHasNoErrors()
         ->assertSee('ghost');
+});
+
+it('caches a metadata failure so it is not retried on every render', function () {
+    $attachment = makeAttachment(['name' => 'ghost-meta']);
+    Storage::disk('attachments')->delete($attachment->full_path);
+
+    expect($attachment->metadata)->toBeFalse();
+
+    $cacheKey = 'metadata-adapter-' . hash('sha256', $attachment->absolute_path);
+    expect(Cache::has($cacheKey))->toBeTrue()
+        ->and(Cache::get($cacheKey))->toBeFalse();
 });
