@@ -49,6 +49,7 @@ class ReplaceAttachmentAction extends Action
                             AttachmentManager::replace($file, $attachment);
 
                             $this->getLivewire()->dispatch('refresh-attachments');
+                            $this->getLivewire()->dispatch('highlight-attachment', $arguments['attachment_id']);
 
                             Notification::make()
                                 ->title(__('filament-attachment-library::notifications.attachment.replaced'))

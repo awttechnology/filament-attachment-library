@@ -191,18 +191,28 @@ class AttachmentViewModel implements Wireable
             now()->addDay(),
             function () {
                 try {
-                    $fullPath = implode('/', array_filter([$this->path, $this->filename]));
-                    if (!Glide::imageIsSupported($fullPath)) {
-                        return $this->url;
+                    $attachment = $this->model();
+                } catch (\Throwable $exception) {
+                    // model() itself threw (e.g. a deleted attachment): there is no
+                    // fresh state to source a URL from, so fall back to the payload
+                    // URL rather than caching nothing forever.
+                    report($exception);
+                    return $this->url;
+                }
+
+                try {
+                    if (!Glide::imageIsSupported($attachment->full_path)) {
+                        return $attachment->url;
                     }
-                    return Resizer::src($this->model())->height(320)->resize()['url'] ?? null;
+                    return Resizer::src($attachment)->height(320)->resize()['url'] ?? null;
                 } catch (\Throwable $exception) {
                     // A single unreadable image must degrade to its original URL,
                     // not take down the whole browser page. The fallback is cached
                     // like a real thumbnail so a broken file is not retried per
                     // render; replacing the file clears the key via forgetCaches().
+                    // The model loaded successfully here, so its URL is fresh.
                     report($exception);
-                    return $this->url;
+                    return $attachment->url;
                 }
             }
         );

@@ -45,6 +45,7 @@ class MoveAttachmentAction extends Action
                 AttachmentManager::move($attachment, $data['path'] ?? null);
 
                 $this->getLivewire()->dispatch('refresh-attachments');
+                $this->getLivewire()->dispatch('highlight-attachment', $arguments['attachment_id']);
 
                 Notification::make()
                     ->title(__('filament-attachment-library::notifications.attachment.moved'))
