@@ -28,3 +28,15 @@ it('never builds the Glide server for a support check', function () {
 
     expect(Glide::imageIsSupported('images/photo.png'))->toBeTrue();
 });
+
+it('treats aliased extensions as their canonical format', function () {
+    // gd reports JPEG (never JPG); the alias map must cover both spellings,
+    // and TIF must map to TIFF the same way.
+    expect(Glide::imageIsSupported('scan.jpg'))->toBeTrue()
+        ->and(Glide::imageIsSupported('scan.jpeg'))->toBeTrue();
+
+    // TIF support follows TIFF: under gd neither is supported, so both
+    // spellings must agree (the old code disagreed under imagick).
+    expect(Glide::imageIsSupported('scan.tif'))
+        ->toBe(Glide::imageIsSupported('scan.tiff'));
+});

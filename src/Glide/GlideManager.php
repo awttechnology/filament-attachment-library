@@ -120,23 +120,13 @@ class GlideManager
             return false;
         }
 
+        // Extension spellings that drivers report under a different name:
+        // gd_info() and Imagick::queryFormats() both say JPEG, never JPG.
+        $canonical = ['JPG' => 'JPEG', 'TIF' => 'TIFF'][$extension] ?? $extension;
         $formats = $this->getSupportedImageFormats();
 
-        // Handle JPG/JPEG aliasing: if JPG is requested but not in the list,
-        // check for JPEG; if JPEG is requested but not in the list, check for JPG.
-        if (in_array($extension, $formats, true)) {
-            return true;
-        }
-
-        if ($extension === 'JPG' && in_array('JPEG', $formats, true)) {
-            return true;
-        }
-
-        if ($extension === 'JPEG' && in_array('JPG', $formats, true)) {
-            return true;
-        }
-
-        return false;
+        return in_array($extension, $formats, true)
+            || in_array($canonical, $formats, true);
     }
 
     /**
