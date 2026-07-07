@@ -2,7 +2,6 @@
 
 use AwtTechnology\FilamentAttachmentLibrary\Livewire\AttachmentBrowser;
 use AwtTechnology\FilamentAttachmentLibrary\Facades\Glide;
-use AwtTechnology\FilamentAttachmentLibrary\ViewModels\AttachmentViewModel;
 use Illuminate\Support\Facades\DB;
 use Livewire\Livewire;
 
