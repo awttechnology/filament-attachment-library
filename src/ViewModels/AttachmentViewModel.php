@@ -84,10 +84,16 @@ class AttachmentViewModel implements Wireable
         $this->alt = $attachment->alt;
         $this->caption = $attachment->caption;
 
-        if ($metadata = $attachment->metadata) { // @phpstan-ignore-line
-            $this->bits = $metadata->bits;
-            $this->channels = $metadata->channels;
-            $this->dimensions = "{$metadata->width}x{$metadata->height}";
+        try {
+            if ($metadata = $attachment->metadata) { // @phpstan-ignore-line
+                $this->bits = $metadata->bits;
+                $this->channels = $metadata->channels;
+                $this->dimensions = "{$metadata->width}x{$metadata->height}";
+            }
+        } catch (\Throwable $exception) {
+            // If the backing file is missing or unreadable, we still want to display
+            // the attachment in the browser, just without its metadata (dimensions, bits, etc).
+            report($exception);
         }
     }
 
@@ -127,10 +133,19 @@ class AttachmentViewModel implements Wireable
             'attachment-thumbnail-url:' . $this->id . ':h320',
             now()->addDay(),
             function () {
-                if (!Glide::imageIsSupported($this->attachment->full_path)) {
+                try {
+                    if (!Glide::imageIsSupported($this->attachment->full_path)) {
+                        return $this->attachment->url;
+                    }
+                    return Resizer::src($this->attachment)->height(320)->resize()['url'] ?? null;
+                } catch (\Throwable $exception) {
+                    // A single unreadable image must degrade to its original URL,
+                    // not take down the whole browser page. The fallback is cached
+                    // like a real thumbnail so a broken file is not retried per
+                    // render; replacing the file clears the key via forgetCaches().
+                    report($exception);
                     return $this->attachment->url;
                 }
-                return Resizer::src($this->attachment)->height(320)->resize()['url'] ?? null;
             }
         );
     }
