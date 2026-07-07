@@ -421,6 +421,10 @@ class AttachmentBrowser extends Component implements HasActions, HasForms
         // Reset only modal-scoped state. A blanket reset() also wiped basePath,
         // currentPath, layout and the forms, breaking the next open of the modal.
         $this->reset(['selected', 'statePath', 'multiple', 'mime', 'disableMimeFilter', 'search']);
+
+        // Without this, reopening the modal (e.g. for a different field) keeps
+        // showing whatever page the previous browsing session paginated to.
+        $this->resetPage();
     }
 
     #[On('open-attachment-modal')]

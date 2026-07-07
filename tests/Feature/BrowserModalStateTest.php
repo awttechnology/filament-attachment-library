@@ -25,6 +25,16 @@ it('preserves basePath and browsing state across close', function () {
         ->assertSet('basePath', 'media');
 });
 
+it('resets pagination when the modal closes', function () {
+    collect(range(1, 30))->each(fn ($i) => makeAttachment(['name' => 'img-' . $i]));
+
+    Livewire::test(AttachmentBrowser::class)
+        ->set('search', 'img')
+        ->call('gotoPage', 2)
+        ->call('closeModal', false)
+        ->assertSet('paginators.page', 1);
+});
+
 it('dispatches the selected id as a scalar on save-close for single select', function () {
     $attachment = makeAttachment();
 
