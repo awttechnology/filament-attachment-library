@@ -54,3 +54,30 @@ it('rehydrates the attachment id from a stored url', function () {
     Livewire::test(EditPostForm::class, ['post' => $post, 'storeAsUrl' => true])
         ->assertSet('data.featured_image_id', $attachment->id);
 });
+
+it('rehydrates the id from a stored CDN-style url that AttachmentManager::findByUrl cannot reverse', function () {
+    $attachment = makeAttachment(['path' => 'brochures', 'name' => 'hero', 'extension' => 'pdf', 'mime_type' => 'application/pdf']);
+    $post = TestPost::create(['featured_image_id' => 'https://cdn.example.com/brochures/hero.pdf']);
+
+    Livewire::test(EditPostForm::class, ['post' => $post, 'storeAsUrl' => true])
+        ->assertSet('data.featured_image_id', $attachment->id);
+});
+
+it('rehydrates a stale numeric id that matches no attachment to null', function () {
+    $post = TestPost::create(['featured_image_id' => '999999']);
+
+    Livewire::test(EditPostForm::class, ['post' => $post, 'storeAsUrl' => true])
+        ->assertSet('data.featured_image_id', null);
+});
+
+it('dehydrates the first id of an array state to its url', function () {
+    $attachment = makeAttachment();
+    $post = TestPost::create();
+
+    Livewire::test(EditPostForm::class, ['post' => $post, 'storeAsUrl' => true])
+        ->set('data.featured_image_id', [$attachment->id])
+        ->call('save')
+        ->assertHasNoErrors();
+
+    expect($post->fresh()->featured_image_id)->toBe($attachment->url);
+});

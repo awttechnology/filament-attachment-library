@@ -157,7 +157,11 @@ class AttachmentField extends Field
     public function storeAsUrl(): static
     {
         $this->dehydrateStateUsing(function ($state) {
-            $id = $state instanceof Collection ? $state->first() : $state;
+            $id = match (true) {
+                $state instanceof Collection => $state->first(),
+                is_array($state) => $state[0] ?? null,
+                default => $state,
+            };
 
             return blank($id) ? null : Attachment::find($id)?->url;
         });
@@ -167,10 +171,12 @@ class AttachmentField extends Field
                 return null;
             }
             if (is_numeric($state)) {
-                return (int) $state;
+                return Attachment::find((int) $state)?->id;
             }
 
-            return AttachmentManager::findByUrl($state)?->id;
+            $attachment = AttachmentManager::findByUrl($state) ?? Attachment::findByUrl($state);
+
+            return $attachment?->id;
         });
 
         return $this;
