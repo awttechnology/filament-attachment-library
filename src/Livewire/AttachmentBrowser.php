@@ -79,6 +79,8 @@ class AttachmentBrowser extends Component implements HasActions, HasForms
 
     public bool $disabled = false;
 
+    public bool $activated = false;
+
     public ?string $statePath = null;
 
     public ?array $createDirectoryFormState = [];
@@ -340,6 +342,13 @@ class AttachmentBrowser extends Component implements HasActions, HasForms
 
     private function getDirectories(): Collection
     {
+        // Skip the directory + count queries until the modal has actually been
+        // opened. The browser is mounted eagerly (not lazy) so its listeners are
+        // always live, but we don't want its queries running on every page load.
+        if (!$this->activated) {
+            return collect();
+        }
+
         $sortColumn = Str::beforeLast($this->sortBy, '_');
         $sortDirection = Str::afterLast($this->sortBy, '_');
 
@@ -376,6 +385,11 @@ class AttachmentBrowser extends Component implements HasActions, HasForms
      */
     private function getAttachments(): LengthAwarePaginator
     {
+        // See getDirectories(): don't query attachments until the modal is opened.
+        if (!$this->activated) {
+            return new LengthAwarePaginator([], 0, $this->pageSize);
+        }
+
         $sortColumn = Str::beforeLast($this->sortBy, '_');
         $sortDirection = Str::afterLast($this->sortBy, '_');
 
@@ -428,7 +442,7 @@ class AttachmentBrowser extends Component implements HasActions, HasForms
 
         // Reset only modal-scoped state. A blanket reset() also wiped basePath,
         // currentPath, layout and the forms, breaking the next open of the modal.
-        $this->reset(['selected', 'statePath', 'multiple', 'mime', 'disableMimeFilter', 'search']);
+        $this->reset(['activated', 'selected', 'statePath', 'multiple', 'mime', 'disableMimeFilter', 'search']);
 
         // Without this, reopening the modal (e.g. for a different field) keeps
         // showing whatever page the previous browsing session paginated to.
@@ -438,6 +452,7 @@ class AttachmentBrowser extends Component implements HasActions, HasForms
     #[On('open-attachment-modal')]
     public function openModal(?string $statePath = null, int|array|null $selected = null, ?bool $multiple = null, ?string $mime = null, ?bool $disableMimeFilter = null, ?string $directory = null): void
     {
+        $this->activated = true;
         $this->statePath = $statePath;
         $this->multiple = $multiple ?? false;
         $this->mime = $mime;
