@@ -246,4 +246,45 @@ class AttachmentViewModel implements Wireable
 
         return $attachment ? new AttachmentViewModel($attachment) : null;
     }
+
+    /**
+     * Resolve every uploader/updater name for a page of attachments in one
+     * query, pre-warming the per-user cache the constructor reads. Missing
+     * users are cached as '' so a deleted uploader does not re-query on
+     * every render (Cache::remember never stores null).
+     *
+     * @param iterable<Attachment> $attachments
+     */
+    /**
+     * Resolve every uploader/updater name for a page of attachments in one
+     * query, pre-warming the per-user cache the constructor reads. Missing
+     * users are cached as '' so a deleted uploader does not re-query on
+     * every render (Cache::remember never stores null).
+     *
+     * @param iterable<Attachment> $attachments
+     */
+    public static function warmUserNames(iterable $attachments): void
+    {
+        $userIds = collect($attachments)
+            ->flatMap(fn (Attachment $attachment) => [$attachment->created_by, $attachment->updated_by])
+            ->filter()
+            ->unique()
+            ->reject(fn ($id) => Cache::has('attachment-user:' . $id))
+            ->values();
+
+        if ($userIds->isEmpty()) {
+            return;
+        }
+
+        $userModel = Config::get('filament-attachment-library.user_model', User::class);
+        $usernameProperty = Config::get('filament-attachment-library.username_property', 'name');
+
+        $names = $userModel::query()
+            ->whereIn('id', $userIds)
+            ->pluck($usernameProperty, 'id');
+
+        foreach ($userIds as $id) {
+            Cache::put('attachment-user:' . $id, $names[$id] ?? '', now()->addMinutes(5));
+        }
+    }
 }

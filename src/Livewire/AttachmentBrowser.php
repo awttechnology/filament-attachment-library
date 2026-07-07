@@ -393,6 +393,8 @@ class AttachmentBrowser extends Component implements HasActions, HasForms
             ->orderBy($sortColumn, $sortDirection)
             ->paginate($this->pageSize);
 
+        AttachmentViewModel::warmUserNames($attachments->items());
+
         $collection = $attachments->getCollection()
             ->map(fn (Attachment $attachment) => new AttachmentViewModel($attachment));
 
