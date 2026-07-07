@@ -255,14 +255,6 @@ class AttachmentViewModel implements Wireable
      *
      * @param iterable<Attachment> $attachments
      */
-    /**
-     * Resolve every uploader/updater name for a page of attachments in one
-     * query, pre-warming the per-user cache the constructor reads. Missing
-     * users are cached as '' so a deleted uploader does not re-query on
-     * every render (Cache::remember never stores null).
-     *
-     * @param iterable<Attachment> $attachments
-     */
     public static function warmUserNames(iterable $attachments): void
     {
         $userIds = collect($attachments)
