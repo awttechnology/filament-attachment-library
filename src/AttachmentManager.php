@@ -260,7 +260,12 @@ class AttachmentManager
         // Write the replacement before deleting the original so a failed write
         // never loses the existing file. A same-named replacement overwrites in
         // place and needs no delete at all.
-        $disk->put($path, $file->getContent());
+        // FilesystemAdapter::put() returns false (rather than throwing) on
+        // failure unless the disk has 'throw' => true, so a false return must be
+        // treated as a failed write before any delete of the original can happen.
+        if ($disk->put($path, $file->getContent()) === false) {
+            throw new \RuntimeException("Failed to write replacement file to {$path}.");
+        }
         if ($path !== $oldPath) {
             $disk->delete($oldPath);
         }
@@ -297,7 +302,12 @@ class AttachmentManager
             throw new DestinationAlreadyExistsException();
         }
         $originalPath = $file->full_path;
-        $disk->move($originalPath, $path);
+        // FilesystemAdapter::move() returns false (rather than throwing) on
+        // failure unless the disk has 'throw' => true, so a false return must be
+        // treated as a failed move before the database is touched.
+        if ($disk->move($originalPath, $path) === false) {
+            throw new \RuntimeException("Failed to move file to {$path}.");
+        }
         try {
             $file->update(['name' => $name]);
         } catch (\Throwable $exception) {
@@ -320,7 +330,12 @@ class AttachmentManager
             throw new DestinationAlreadyExistsException();
         }
         $originalPath = $file->full_path;
-        $disk->move($originalPath, $path);
+        // FilesystemAdapter::move() returns false (rather than throwing) on
+        // failure unless the disk has 'throw' => true, so a false return must be
+        // treated as a failed move before the database is touched.
+        if ($disk->move($originalPath, $path) === false) {
+            throw new \RuntimeException("Failed to move file to {$path}.");
+        }
         try {
             $file->update(['path' => $desiredPath]);
         } catch (\Throwable $exception) {
@@ -346,7 +361,12 @@ class AttachmentManager
         if ($disk->exists($newPath)) {
             throw new DestinationAlreadyExistsException();
         }
-        $disk->move($currentPath, $newPath);
+        // FilesystemAdapter::move() returns false (rather than throwing) on
+        // failure unless the disk has 'throw' => true, so a false return must be
+        // treated as a failed move before any database row is touched.
+        if ($disk->move($currentPath, $newPath) === false) {
+            throw new \RuntimeException("Failed to move directory to {$newPath}.");
+        }
 
         // Rewrite the path prefix for every affected row in a single UPDATE rather
         // than loading and saving each attachment individually. Mass updates skip

@@ -18,6 +18,20 @@ it('keeps the original file when writing the replacement fails', function () {
     expect(fn () => $manager->replace($upload, $attachment))->toThrow(RuntimeException::class);
 });
 
+it('treats a false return from put as a failure and does not delete the original', function () {
+    $attachment = makeAttachment(['path' => 'docs', 'name' => 'report', 'extension' => 'pdf', 'mime_type' => 'application/pdf']);
+
+    $fs = Mockery::mock(Filesystem::class);
+    $fs->shouldReceive('exists')->andReturn(false);
+    $fs->shouldReceive('put')->once()->andReturn(false);
+    $fs->shouldNotReceive('delete');
+
+    $manager = new TestAttachmentManager($fs);
+    $upload = UploadedFile::fake()->create('replacement.pdf', 10, 'application/pdf');
+
+    expect(fn () => $manager->replace($upload, $attachment))->toThrow(RuntimeException::class);
+});
+
 it('writes the replacement before deleting the original', function () {
     $attachment = makeAttachment(['path' => 'docs', 'name' => 'report', 'extension' => 'pdf', 'mime_type' => 'application/pdf']);
 

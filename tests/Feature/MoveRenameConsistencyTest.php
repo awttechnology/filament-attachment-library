@@ -2,6 +2,8 @@
 
 use AwtTechnology\FilamentAttachmentLibrary\Facades\AttachmentManager;
 use AwtTechnology\FilamentAttachmentLibrary\Models\Attachment;
+use AwtTechnology\FilamentAttachmentLibrary\Tests\Fixtures\TestAttachmentManager;
+use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Support\Facades\Storage;
 
 it('restores the file when the database update fails during move', function () {
@@ -36,4 +38,32 @@ it('restores the file when the database update fails during rename', function ()
     Storage::disk('attachments')->assertMissing('src/b.jpg');
     expect($attachment->fresh()->name)->toBe('a');
     expect($attachment->name)->toBe('a')->and($attachment->isDirty())->toBeFalse();
+});
+
+it('throws and leaves the database untouched when the filesystem move returns false during move', function () {
+    $attachment = makeAttachment(['path' => 'src', 'name' => 'a']);
+
+    $fs = Mockery::mock(Filesystem::class);
+    $fs->shouldReceive('exists')->andReturn(false);
+    $fs->shouldReceive('move')->once()->andReturn(false);
+
+    $manager = new TestAttachmentManager($fs);
+
+    expect(fn () => $manager->move($attachment, 'dst'))->toThrow(RuntimeException::class);
+
+    expect($attachment->fresh()->path)->toBe('src');
+});
+
+it('throws and leaves the database untouched when the filesystem move returns false during rename', function () {
+    $attachment = makeAttachment(['path' => 'src', 'name' => 'a']);
+
+    $fs = Mockery::mock(Filesystem::class);
+    $fs->shouldReceive('exists')->andReturn(false);
+    $fs->shouldReceive('move')->once()->andReturn(false);
+
+    $manager = new TestAttachmentManager($fs);
+
+    expect(fn () => $manager->rename($attachment, 'b'))->toThrow(RuntimeException::class);
+
+    expect($attachment->fresh()->name)->toBe('a');
 });
