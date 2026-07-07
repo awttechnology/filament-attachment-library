@@ -1,7 +1,9 @@
 <?php
 
+use AwtTechnology\FilamentAttachmentLibrary\AttachmentManager as AttachmentManagerClass;
 use AwtTechnology\FilamentAttachmentLibrary\Facades\AttachmentManager;
 use AwtTechnology\FilamentAttachmentLibrary\Models\Attachment;
+use AwtTechnology\FilamentAttachmentLibrary\Tests\Fixtures\FailingUpdateAttachment;
 use Illuminate\Support\Facades\Storage;
 
 it('rewrites only the leading path prefix when renaming a directory', function () {
@@ -35,4 +37,19 @@ it('renames unicode-named directories without corrupting descendant paths', func
 
     expect(Attachment::pluck('path')->all())
         ->toEqualCanonicalizing(['catalog', 'catalog/x']);
+});
+
+it('rolls back the directory move when the bulk path update fails', function () {
+    Storage::disk('attachments')->makeDirectory('products');
+    $attachment = makeAttachment(['path' => 'products', 'name' => 'a']);
+
+    config()->set('attachment-library.class_mapping.attachment', FailingUpdateAttachment::class);
+    $manager = new AttachmentManagerClass();
+
+    expect(fn () => $manager->renameDirectory('products', 'catalog'))
+        ->toThrow(RuntimeException::class);
+
+    Storage::disk('attachments')->assertExists('products');
+    Storage::disk('attachments')->assertMissing('catalog');
+    expect($attachment->fresh()->path)->toBe('products');
 });

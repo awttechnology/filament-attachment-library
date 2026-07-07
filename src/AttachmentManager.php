@@ -374,21 +374,31 @@ class AttachmentManager
         // (ids survive the rename; the cached URL would otherwise point at the old
         // path). Ids are captured before the update, since whereInPath no longer
         // matches afterwards.
-        $ids = $this->attachmentClass::whereDisk($this->disk)->whereInPath($currentPath)->pluck('id');
+        //
+        // The whole capture-and-update sequence is guarded: if the mass update
+        // fails partway (or outright), the directory move already happened on
+        // disk, so it is rolled back to keep the filesystem and database
+        // consistent before the exception propagates.
+        try {
+            $ids = $this->attachmentClass::whereDisk($this->disk)->whereInPath($currentPath)->pluck('id');
 
-        // Prefix-safe: keep everything after the old prefix and prepend the new
-        // one, instead of REPLACE() which substitutes the substring anywhere in
-        // the path (corrupting e.g. products/x/products).
-        $connection = $this->attachmentClass::query()->getConnection();
-        $quotedNewPath = $connection->getPdo()->quote($newPath);
-        $remainder = 'SUBSTR(path, ' . (mb_strlen($currentPath, 'UTF-8') + 1) . ')';
-        $expression = in_array($connection->getDriverName(), ['mysql', 'mariadb'], true)
-            ? "CONCAT({$quotedNewPath}, {$remainder})"
-            : "{$quotedNewPath} || {$remainder}";
+            // Prefix-safe: keep everything after the old prefix and prepend the new
+            // one, instead of REPLACE() which substitutes the substring anywhere in
+            // the path (corrupting e.g. products/x/products).
+            $connection = $this->attachmentClass::query()->getConnection();
+            $quotedNewPath = $connection->getPdo()->quote($newPath);
+            $remainder = 'SUBSTR(path, ' . (mb_strlen($currentPath, 'UTF-8') + 1) . ')';
+            $expression = in_array($connection->getDriverName(), ['mysql', 'mariadb'], true)
+                ? "CONCAT({$quotedNewPath}, {$remainder})"
+                : "{$quotedNewPath} || {$remainder}";
 
-        $this->attachmentClass::whereDisk($this->disk)
-            ->whereInPath($currentPath)
-            ->update(['path' => $connection->raw($expression)]);
+            $this->attachmentClass::whereDisk($this->disk)
+                ->whereInPath($currentPath)
+                ->update(['path' => $connection->raw($expression)]);
+        } catch (\Throwable $exception) {
+            $disk->move($newPath, $currentPath);
+            throw $exception;
+        }
 
         foreach ($ids as $id) {
             Cache::forget('attachment-thumbnail-url:' . $id . ':h320');
