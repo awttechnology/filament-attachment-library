@@ -26,6 +26,15 @@ return [
     'directory_source' => 'filesystem',
 
     /**
+     * When directory_source is 'database', also merge the real subfolders present
+     * on the storage disk for the current path (one non-recursive list call per
+     * folder view). Surfaces empty / not-yet-synced folders so they can be
+     * navigated into and used as upload targets. No effect in 'filesystem' mode,
+     * which already lists the disk.
+     */
+    'merge_storage_directories' => true,
+
+    /**
      * How long (in seconds) to suppress re-syncing a directory after it has been synced.
      * Default: 300 (5 minutes).
      */

@@ -70,7 +70,17 @@ class AttachmentManager
     public function directories(?string $path = null): Collection
     {
         if (Config::get('attachment-library.directory_source', 'filesystem') === 'database') {
-            return $this->directoriesFromDatabase($path);
+            $directories = $this->directoriesFromDatabase($path);
+
+            // Database mode derives folders from attachment rows, so folders that
+            // exist on the storage disk but hold no (synced) files are invisible.
+            // Merge in the disk's real subfolders for the current path so they can
+            // be navigated into and used as upload targets.
+            if (Config::get('attachment-library.merge_storage_directories', true)) {
+                $directories = $this->mergeStorageDirectories($directories, $path);
+            }
+
+            return $directories;
         }
 
         if (Config::get('attachment-library.auto_sync', true)) {
@@ -122,6 +132,38 @@ class AttachmentManager
             ->map(fn ($dir) => new $this->directoryClass($dir))
             ->reject(fn (Directory $directory) => in_array($directory->name, $hidden, true))
             ->values();
+    }
+
+    /**
+     * Union the storage disk's real subfolders for $path into a DB-derived
+     * directory set. One non-recursive list call; folders already present in the
+     * DB set are deduped by fullPath, hidden directories are rejected, and a
+     * failed storage listing degrades to the DB-only set.
+     *
+     * @param  Collection<int, Directory>  $directories
+     * @return Collection<int, Directory>
+     */
+    protected function mergeStorageDirectories(Collection $directories, ?string $path): Collection
+    {
+        $hidden = Config::get('attachment-library.hidden_directories', []);
+        $existing = $directories->map(fn (Directory $directory) => $directory->fullPath)->all();
+
+        try {
+            $storage = collect($this->getFilesystem()->directories($path));
+        } catch (\Throwable $exception) {
+            // A Bunny/storage hiccup must not break the browser — keep the
+            // DB-derived folders and surface nothing extra this render.
+            report($exception);
+
+            return $directories;
+        }
+
+        return $directories->concat(
+            $storage
+                ->map(fn ($directory) => new $this->directoryClass($directory))
+                ->reject(fn (Directory $directory) => in_array($directory->name, $hidden, true))
+                ->reject(fn (Directory $directory) => in_array($directory->fullPath, $existing, true))
+        )->values();
     }
 
     protected function syncIfDue(?string $directory): void
