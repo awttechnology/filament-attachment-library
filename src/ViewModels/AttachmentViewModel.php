@@ -184,10 +184,28 @@ class AttachmentViewModel implements Wireable
         return $this;
     }
 
+    /**
+     * The src the browser grid/preview renders for a thumbnail.
+     *
+     * Warm (URL already cached) → the direct URL, exactly as before. Cold → the
+     * on-demand thumbnail route, so the Livewire render does NO Glide generation;
+     * the browser fetches it lazily/in parallel and ThumbnailController generates +
+     * caches the derivative, warming the fast path for the next render.
+     */
+    public function thumbnailSrc(): ?string
+    {
+        return Cache::get($this->thumbnailCacheKey()) ?? route('attachment.thumb', $this->id);
+    }
+
+    private function thumbnailCacheKey(): string
+    {
+        return 'attachment-thumbnail-url:' . $this->id . ':h320';
+    }
+
     public function thumbnailUrl(): ?string
     {
         return Cache::remember(
-            'attachment-thumbnail-url:' . $this->id . ':h320',
+            $this->thumbnailCacheKey(),
             now()->addDay(),
             function () {
                 try {

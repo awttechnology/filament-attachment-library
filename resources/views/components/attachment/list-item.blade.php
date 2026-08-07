@@ -16,7 +16,7 @@
         <img
             alt="{{ $attachment->alt }}"
             loading="lazy"
-            src="{{ $attachment->thumbnailUrl() }}"
+            src="{{ $attachment->thumbnailSrc() }}"
             class="object-cover size-full"
             draggable="false"
         >

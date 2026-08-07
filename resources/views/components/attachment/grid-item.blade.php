@@ -22,8 +22,8 @@
         <img
             alt="{{ $attachment->alt }}"
             loading="lazy"
-            src="{{ $attachment->thumbnailUrl() }}"
-            class="object-contain size-full"
+            src="{{ $attachment->thumbnailSrc() }}"
+            class="object-contain size-full bg-gray-100 dark:bg-gray-800"
             draggable="false"
         >
     @endif
