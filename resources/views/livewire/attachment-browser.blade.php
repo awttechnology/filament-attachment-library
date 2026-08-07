@@ -18,10 +18,18 @@
     <div class="flex flex-col gap-6 mt-4 flex-wrap md:flex-row">
         <div
             @class([
-                'flex-1 order-2 md:order-1',
+                'relative flex-1 order-2 md:order-1',
                 'opacity-50 pointer-events-none' => $disabled,
             ])
         >
+            <div
+                wire:loading.flex
+                wire:target="openPath"
+                class="absolute inset-0 z-10 items-center justify-center rounded-lg bg-white/70 dark:bg-gray-900/70"
+            >
+                <x-filament::loading-indicator class="h-10 w-10 text-primary-500"/>
+            </div>
+
             @if(!$directories->isEmpty())
                 <x-filament-attachment-library::items.container :layout="$layout">
                     @foreach($directories as $directory)
