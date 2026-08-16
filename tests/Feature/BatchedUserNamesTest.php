@@ -47,7 +47,7 @@ it('resolves all uploader names in a single query per render', function () {
         }
     });
 
-    Livewire::test(AttachmentBrowser::class)->assertHasNoErrors();
+    Livewire::test(AttachmentBrowser::class)->call('openModal')->assertHasNoErrors();
 
     expect($userQueries)->toBe(1);
 });

@@ -5,7 +5,7 @@ namespace AwtTechnology\FilamentAttachmentLibrary\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Middleware\ValidateSignature;
-use Intervention\Image\Exception\NotReadableException;
+use Intervention\Image\Exceptions\DecoderException;
 use League\Glide\Filesystem\FileNotFoundException;
 use League\Glide\Filesystem\FilesystemException;
 use League\Glide\Server;
@@ -31,7 +31,7 @@ class GlideController implements HasMiddleware
             );
         } catch (FileNotFoundException) {
             abort(404);
-        } catch (NotReadableException) {
+        } catch (DecoderException) {
             $attachment = AttachmentManager::file($path);
             if (!$attachment) {
                 abort(404);

@@ -14,6 +14,7 @@ it('lists only attachments from the configured disk', function () {
     makeAttachment(['name' => 'foreign', 'disk' => 'other']);
 
     Livewire::test(AttachmentBrowser::class)
+        ->call('openModal')
         ->assertSee('mine')
         ->assertDontSee('foreign');
 });
@@ -23,7 +24,7 @@ it('counts directory items only on the configured disk', function () {
     makeAttachment(['path' => 'docs', 'name' => 'a']);
     makeAttachment(['path' => 'docs', 'name' => 'b', 'disk' => 'other']);
 
-    $directories = Livewire::test(AttachmentBrowser::class)->viewData('directories');
+    $directories = Livewire::test(AttachmentBrowser::class)->call('openModal')->viewData('directories');
 
     expect($directories)->toHaveCount(1)
         ->and($directories->first()->itemCount())->toBe(1);

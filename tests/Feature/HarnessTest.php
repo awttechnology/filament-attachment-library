@@ -14,6 +14,7 @@ it('renders the attachment browser', function () {
     makeAttachment(['name' => 'browser-smoke']);
 
     Livewire::test(AttachmentBrowser::class)
+        ->call('openModal')
         ->assertHasNoErrors()
         ->assertSee('browser-smoke');
 });

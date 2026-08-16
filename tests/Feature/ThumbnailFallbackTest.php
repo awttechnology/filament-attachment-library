@@ -24,6 +24,7 @@ it('renders the browser even when an image file is missing from disk', function 
     Storage::disk('attachments')->delete($attachment->full_path);
 
     Livewire::test(AttachmentBrowser::class)
+        ->call('openModal')
         ->assertHasNoErrors()
         ->assertSee('ghost');
 });
