@@ -4,6 +4,7 @@ namespace AwtTechnology\FilamentAttachmentLibrary;
 
 use AwtTechnology\FilamentAttachmentLibrary\Console\Commands\ClearGlide;
 use AwtTechnology\FilamentAttachmentLibrary\Console\Commands\GlideStats;
+use AwtTechnology\FilamentAttachmentLibrary\Console\Commands\InstallCommand;
 use AwtTechnology\FilamentAttachmentLibrary\Console\Commands\WarmGlide;
 use AwtTechnology\FilamentAttachmentLibrary\Filament\Pages\AttachmentLibrary;
 use AwtTechnology\FilamentAttachmentLibrary\Glide\GlideManager;
@@ -102,6 +103,6 @@ class AttachmentLibraryServiceProvider extends ServiceProvider
             ],
         ]);
 
-        $this->commands([ClearGlide::class, GlideStats::class, WarmGlide::class]);
+        $this->commands([InstallCommand::class, ClearGlide::class, GlideStats::class, WarmGlide::class]);
     }
 }
