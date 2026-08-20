@@ -108,6 +108,25 @@ return [
     ],
 
     /**
+     * Defaults for the CroppieAttachmentField (interactive image cropper). Each
+     * value is overridable per-field via the field's fluent setters. Cropped
+     * output is saved to the field's disk/directory as a new Attachment.
+     */
+    'croppie' => [
+        'viewport_type'   => 'square', // 'square' | 'circle'
+        'viewport_width'  => 200,
+        'viewport_height' => 200,
+        'boundary_width'  => 600,
+        'boundary_height' => 400,
+        'enable_resize'   => true,
+        'enable_zoom'     => true,
+        'show_zoomer'     => true,
+        'modal_size'      => '4xl',
+        'image_format'    => 'png',    // 'png' | 'jpeg' | 'webp'
+        'image_size'      => 'viewport', // 'viewport' | 'original'
+    ],
+
+    /**
      * Classes including configuration that manipulate file names.
      */
     'file_namers' => [

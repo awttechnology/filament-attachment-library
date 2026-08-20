@@ -2,13 +2,6 @@
 
 namespace AwtTechnology\FilamentAttachmentLibrary;
 
-use Illuminate\Contracts\Filesystem\Filesystem;
-use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Config;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
 use AwtTechnology\FilamentAttachmentLibrary\Adapters\FileMetadata\MetadataAdapter;
 use AwtTechnology\FilamentAttachmentLibrary\DataTransferObjects\Directory;
 use AwtTechnology\FilamentAttachmentLibrary\DataTransferObjects\FileMetadata;
@@ -19,6 +12,13 @@ use AwtTechnology\FilamentAttachmentLibrary\Exceptions\DisallowedCharacterExcept
 use AwtTechnology\FilamentAttachmentLibrary\Exceptions\IncompatibleClassMappingException;
 use AwtTechnology\FilamentAttachmentLibrary\Exceptions\NoParentDirectoryException;
 use AwtTechnology\FilamentAttachmentLibrary\Models\Attachment;
+use Illuminate\Contracts\Filesystem\Filesystem;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 /**
  * Performs attachment related actions on database and filesystem.
@@ -26,10 +26,15 @@ use AwtTechnology\FilamentAttachmentLibrary\Models\Attachment;
 class AttachmentManager
 {
     protected string $disk;
+
     protected string $attachmentClass;
+
     protected string $directoryClass;
+
     protected array $metadataRetrievers;
+
     protected string $allowedCharacters;
+
     protected array $attachmentTypeMapping;
 
     /** @throws IncompatibleClassMappingException */
@@ -58,6 +63,7 @@ class AttachmentManager
     public function setDisk(string $disk): AttachmentManager
     {
         $this->disk = $disk;
+
         return $this;
     }
 
@@ -65,7 +71,7 @@ class AttachmentManager
      * Return all directories under a given path, excluding any listed in
      * attachment-library.hidden_directories.
      *
-     * @param string|null $path Use `null` for root of disk.
+     * @param  string|null  $path  Use `null` for root of disk.
      */
     public function directories(?string $path = null): Collection
     {
@@ -103,7 +109,7 @@ class AttachmentManager
     {
         $hidden = Config::get('attachment-library.hidden_directories', []);
 
-        $prefix = $path === null ? null : $path . '/';
+        $prefix = $path === null ? null : $path.'/';
 
         // Only fetch paths under the requested prefix. The LIKE narrows rows at the
         // DB (LIKE wildcards in folder names may over-match, so the precise
@@ -111,7 +117,7 @@ class AttachmentManager
         $allPaths = $this->attachmentClass::whereDisk($this->disk)
             ->whereNotNull('path')
             ->where('path', '!=', '')
-            ->when($prefix !== null, fn ($query) => $query->where('path', 'LIKE', $prefix . '%'))
+            ->when($prefix !== null, fn ($query) => $query->where('path', 'LIKE', $prefix.'%'))
             ->distinct()
             ->pluck('path');
 
@@ -123,7 +129,7 @@ class AttachmentManager
         } else {
             $directoryPaths = $allPaths
                 ->filter(fn ($p) => str_starts_with($p, $prefix))
-                ->map(fn ($p) => $path . '/' . explode('/', substr($p, strlen($prefix)))[0])
+                ->map(fn ($p) => $path.'/'.explode('/', substr($p, strlen($prefix)))[0])
                 ->unique()
                 ->values();
         }
@@ -169,7 +175,7 @@ class AttachmentManager
     protected function syncIfDue(?string $directory): void
     {
         $ttl = Config::get('attachment-library.auto_sync_interval', 300);
-        $cacheKey = 'attachment-library-last-sync:' . $this->disk . ':' . ($directory ?? '');
+        $cacheKey = 'attachment-library-last-sync:'.$this->disk.':'.($directory ?? '');
 
         // Cache::add is atomic: exactly one concurrent request wins the gate and
         // syncs; the rest skip. Claiming before the work (not after) closes the
@@ -190,7 +196,7 @@ class AttachmentManager
     {
         $files = $this->getFilesystem()->files($directory);
 
-        /** @var Collection<string, boolean> $existing */
+        /** @var Collection<string, bool> $existing */
         $existing = $this->attachmentClass::whereDisk($this->disk)
             ->wherePath($directory)
             ->select(['name', 'extension'])
@@ -200,22 +206,22 @@ class AttachmentManager
         $data = [];
         foreach ($files as $file) {
             $filename = new Filename($file);
-            if (!$filename->name || !$filename->extension) {
+            if (! $filename->name || ! $filename->extension) {
                 continue;
             }
             if ($existing->has("{$filename->name}.{$filename->extension}")) {
                 continue;
             }
             $data[] = [
-                'name'      => $filename->name,
+                'name' => $filename->name,
                 'extension' => $filename->extension,
                 'mime_type' => $this->getFilesystem()->mimeType($file),
-                'disk'      => $this->disk,
-                'path'      => $filename->path,
-                'size'      => $this->getFilesystem()->size($file),
+                'disk' => $this->disk,
+                'path' => $filename->path,
+                'size' => $this->getFilesystem()->size($file),
             ];
         }
-        if (!empty($data)) {
+        if (! empty($data)) {
             $this->attachmentClass::insert($data);
         }
     }
@@ -255,6 +261,7 @@ class AttachmentManager
         } else {
             $path = $url;
         }
+
         return $this->file($path);
     }
 
@@ -272,16 +279,49 @@ class AttachmentManager
         $path = implode('/', array_filter([$desiredPath, $filename]));
         $disk = $this->getFilesystem();
         if ($disk->exists($path)) {
-            throw new DestinationAlreadyExistsException();
+            throw new DestinationAlreadyExistsException;
         }
         $disk->put($path, $file->getContent());
+
         return $this->attachmentClass::create([
-            'name'      => $filename->name,
+            'name' => $filename->name,
             'extension' => $filename->extension,
             'mime_type' => $file->getMimeType(),
-            'disk'      => $this->disk,
-            'path'      => $desiredPath,
-            'size'      => $file->getSize(),
+            'disk' => $this->disk,
+            'path' => $desiredPath,
+            'size' => $file->getSize(),
+        ]);
+    }
+
+    /**
+     * Persist raw file contents (e.g. a client-side cropped image decoded from
+     * base64) and register the matching Attachment record — the raw-bytes sibling
+     * of upload(), which requires an UploadedFile. Honours the manager's current
+     * disk (set via setDisk()). The caller owns the (already-unique) $name; a UUID
+     * is used when none is supplied. Returns the created Attachment.
+     */
+    public function putContents(
+        string $contents,
+        string $mimeType,
+        ?string $directory = null,
+        ?string $name = null,
+        ?string $extension = 'png',
+    ): Attachment {
+        $name ??= (string) Str::uuid();
+        $filename = "{$name}.{$extension}";
+        $this->validateBasename($filename);
+        $path = implode('/', array_filter([$directory, $filename]));
+        if ($this->getFilesystem()->put($path, $contents) === false) {
+            throw new \RuntimeException("Failed to write file to {$path}.");
+        }
+
+        return $this->attachmentClass::create([
+            'name' => $name,
+            'extension' => $extension,
+            'mime_type' => $mimeType,
+            'disk' => $this->disk,
+            'path' => $directory,
+            'size' => strlen($contents),
         ]);
     }
 
@@ -297,7 +337,7 @@ class AttachmentManager
         $path = implode('/', array_filter([$attachment->path, $filename]));
         $oldPath = $attachment->full_path;
         if ($disk->exists($path) && $path !== $oldPath) {
-            throw new DestinationAlreadyExistsException();
+            throw new DestinationAlreadyExistsException;
         }
         // Write the replacement before deleting the original so a failed write
         // never loses the existing file. A same-named replacement overwrites in
@@ -315,11 +355,12 @@ class AttachmentManager
         // the update so a same-named replacement does not serve stale values.
         $attachment->forgetCaches();
         $attachment->update([
-            'name'      => $filename->name,
+            'name' => $filename->name,
             'extension' => $filename->extension,
             'mime_type' => $file->getMimeType(),
-            'size'      => $file->getSize(),
+            'size' => $file->getSize(),
         ]);
+
         return $attachment;
     }
 
@@ -327,7 +368,7 @@ class AttachmentManager
     public function validateBasename(string $name): void
     {
         if (preg_match_all($this->allowedCharacters, $name)) {
-            throw new DisallowedCharacterException();
+            throw new DisallowedCharacterException;
         }
     }
 
@@ -341,7 +382,7 @@ class AttachmentManager
         $disk = $this->getFilesystem();
         $path = "{$file->path}/{$name}.{$file->extension}";
         if ($disk->exists($path)) {
-            throw new DestinationAlreadyExistsException();
+            throw new DestinationAlreadyExistsException;
         }
         $originalPath = $file->full_path;
         // FilesystemAdapter::move() returns false (rather than throwing) on
@@ -369,7 +410,7 @@ class AttachmentManager
         $disk = $this->getFilesystem();
         $path = "{$desiredPath}/{$file->filename}";
         if ($disk->exists($path)) {
-            throw new DestinationAlreadyExistsException();
+            throw new DestinationAlreadyExistsException;
         }
         $originalPath = $file->full_path;
         // FilesystemAdapter::move() returns false (rather than throwing) on
@@ -401,7 +442,7 @@ class AttachmentManager
         $newPath = implode('/', $newPath);
         $disk = $this->getFilesystem();
         if ($disk->exists($newPath)) {
-            throw new DestinationAlreadyExistsException();
+            throw new DestinationAlreadyExistsException;
         }
         // FilesystemAdapter::move() returns false (rather than throwing) on
         // failure unless the disk has 'throw' => true, so a false return must be
@@ -429,7 +470,7 @@ class AttachmentManager
             // the path (corrupting e.g. products/x/products).
             $connection = $this->attachmentClass::query()->getConnection();
             $quotedNewPath = $connection->getPdo()->quote($newPath);
-            $remainder = 'SUBSTR(path, ' . (mb_strlen($currentPath, 'UTF-8') + 1) . ')';
+            $remainder = 'SUBSTR(path, '.(mb_strlen($currentPath, 'UTF-8') + 1).')';
             $expression = in_array($connection->getDriverName(), ['mysql', 'mariadb'], true)
                 ? "CONCAT({$quotedNewPath}, {$remainder})"
                 : "{$quotedNewPath} || {$remainder}";
@@ -443,7 +484,7 @@ class AttachmentManager
         }
 
         foreach ($ids as $id) {
-            Cache::forget('attachment-thumbnail-url:' . $id . ':h320');
+            Cache::forget('attachment-thumbnail-url:'.$id.':h320');
         }
 
         return new Directory($newPath);
@@ -463,15 +504,16 @@ class AttachmentManager
         $this->validatePath($path);
         $disk = $this->getFilesystem();
         if ($disk->exists($path)) {
-            throw new DestinationAlreadyExistsException();
+            throw new DestinationAlreadyExistsException;
         }
         $flags = array_unique([DirectoryStrategies::CREATE_PARENT_DIRECTORIES, ...$flags]);
         $createParentDirectoriesFlag = in_array(DirectoryStrategies::CREATE_PARENT_DIRECTORIES, $flags);
         $hasParentDirectory = $disk->exists(dirname($path));
         if (! $createParentDirectoriesFlag && ! $hasParentDirectory) {
-            throw new NoParentDirectoryException();
+            throw new NoParentDirectoryException;
         }
         $disk->makeDirectory($path);
+
         return new Directory($path);
     }
 
@@ -526,9 +568,10 @@ class AttachmentManager
 
     public function isRemote(Attachment $file): bool
     {
-        if (!config()->has("filesystems.disks.{$file->disk}")) {
+        if (! config()->has("filesystems.disks.{$file->disk}")) {
             return false;
         }
+
         return config("filesystems.disks.{$file->disk}.driver", 'local') !== 'local';
     }
 
@@ -554,6 +597,7 @@ class AttachmentManager
                 return $key;
             }
         }
+
         return null;
     }
 
@@ -568,8 +612,10 @@ class AttachmentManager
             if (! is_a($metadataRetriever, MetadataAdapter::class, true)) {
                 throw new IncompatibleClassMappingException($metadataRetriever, MetadataAdapter::class);
             }
-            return (new $metadataRetriever())->getMetadata($file);
+
+            return (new $metadataRetriever)->getMetadata($file);
         }
+
         return false;
     }
 
@@ -578,9 +624,10 @@ class AttachmentManager
         if (is_string($file)) {
             $file = $this->file($file);
         }
-        if (!$file || !$file->isImage()) {
+        if (! $file || ! $file->isImage()) {
             return null;
         }
+
         return Cache::remember(
             implode('-', ['attachment-manager', hash('sha256', $file->full_path)]),
             now()->addDay(),
@@ -588,7 +635,7 @@ class AttachmentManager
                 $path = $file->absolute_path;
                 if ($file->isRemote()) {
                     $contents = $file->getContents();
-                    if (!$contents) {
+                    if (! $contents) {
                         return null;
                     }
                     $tmpFile = tmpfile();
@@ -596,6 +643,7 @@ class AttachmentManager
                     fwrite($tmpFile, $contents);
                     $path = $metaData['uri'];
                 }
+
                 return getimagesize($path) ?: null;
             }
         );

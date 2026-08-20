@@ -89,6 +89,14 @@ return [
     'field' => [
         'pick' => 'Choose files',
         'drag_to_reorder' => 'Drag to reorder',
+        'crop' => [
+            'button' => 'Crop',
+            'title' => 'Crop image',
+            'description' => 'Adjust the crop, then save. A new cropped copy is created.',
+            'cancel' => 'Cancel',
+            'save' => 'Save crop',
+            'saving' => 'Saving…',
+        ],
     ],
     'title' => 'File manager',
     'group' => 'Files',

@@ -89,6 +89,14 @@ return [
     'field' => [
         'pick' => 'Kies bestand(en)',
         'drag_to_reorder' => 'Sleep om te herordenen',
+        'crop' => [
+            'button' => 'Bijsnijden',
+            'title' => 'Afbeelding bijsnijden',
+            'description' => 'Pas de uitsnede aan en sla op. Er wordt een nieuwe bijgesneden kopie gemaakt.',
+            'cancel' => 'Annuleren',
+            'save' => 'Uitsnede opslaan',
+            'saving' => 'Opslaan…',
+        ],
     ],
     'title' => 'Bestandsbeheer',
     'group' => 'Bestanden',
