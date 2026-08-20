@@ -175,6 +175,28 @@ Add any folder names you want to exclude from the attachment browser:
 ],
 ```
 
+### Croppie cropper defaults
+
+Defaults for [`CroppieAttachmentField`](#croppie-image-cropper-field). Every key is
+overridable per-field via the field's fluent setters.
+
+```php
+// config/attachment-library.php
+'croppie' => [
+    'viewport_type'   => 'square', // 'square' | 'circle'
+    'viewport_width'  => 200,
+    'viewport_height' => 200,
+    'boundary_width'  => 600,
+    'boundary_height' => 400,
+    'enable_resize'   => true,
+    'enable_zoom'     => true,
+    'show_zoomer'     => true,
+    'modal_size'      => '4xl',
+    'image_format'    => 'png',      // 'png' | 'jpeg' | 'webp'
+    'image_size'      => 'viewport', // 'viewport' | 'original'
+],
+```
+
 ---
 
 ## Usage
@@ -216,6 +238,94 @@ AttachmentField::make('banner')->directory('images/banners'),
 
 // Accepts a Closure for dynamic paths
 AttachmentField::make('avatar')->directory(fn () => 'users/' . auth()->id()),
+```
+
+### Croppie image cropper field
+
+`CroppieAttachmentField` **extends `AttachmentField`** — it keeps everything above
+(browse the library, upload, `directory()`, `storeAsUrl()`, MIME restrictions,
+`HasAttachments` relationships) and adds a **Crop** button. Clicking it loads the
+currently-selected image into a [Croppie](https://foliotek.github.io/Croppie/)
+modal; on save the cropped result is written to the field's disk/directory as a
+**new** `Attachment` and the field's selection swaps to it. **The original image is
+never modified** — cropping always produces a fresh derivative.
+
+```php
+use AwtTechnology\FilamentAttachmentLibrary\Forms\Components\CroppieAttachmentField;
+
+// Minimal — square, resizable crop, stored as an attachment id
+CroppieAttachmentField::make('avatar')->image(),
+
+// Typical logo field: store the CDN URL, square viewport, on the bunny disk
+CroppieAttachmentField::make('logo')
+    ->image()
+    ->disk('bunny')
+    ->directory('logos')
+    ->viewportType('square')
+    ->enableResize(true)
+    ->storeAsUrl(),
+
+// A round avatar cropper (circular mask + circular PNG output)
+CroppieAttachmentField::make('avatar')
+    ->image()
+    ->viewportType('circle')
+    ->forceCircleResult(true)
+    ->viewportWidth(240)
+    ->viewportHeight(240),
+```
+
+#### Configuration methods
+
+Every setter accepts a value or a `Closure`. Defaults come from the
+`attachment-library.croppie` config block (see [Configuration](#croppie-cropper-defaults)).
+
+| Method | Default | Description |
+|---|---|---|
+| `disk(string)` | `attachment-library.disk` | Disk the cropped copy is written to |
+| `directory(string)` | *(none)* | Folder within the disk for the cropped copy (inherited from `AttachmentField`) |
+| `imageName(string)` | *(auto)* | Base filename (no extension) for the cropped copy. When unset, `"{source-name}-cropped-{token}"` is used |
+| `viewportType(string)` | `'square'` | `'square'` or `'circle'` |
+| `viewportWidth(int)` / `viewportHeight(int)` | `200` | Crop viewport size in px |
+| `boundaryWidth(int)` / `boundaryHeight(int)` | `600` / `400` | Croppie canvas size in px |
+| `enableResize(bool)` | `true` | Let the user resize the viewport |
+| `enableZoom(bool)` | `true` | Enable zooming |
+| `showZoomer(bool)` | `true` | Show the zoom slider |
+| `mouseWheelZoom(bool\|string)` | `true` | `true`, `false`, or `'ctrl'` |
+| `enableOrientation(bool)` | `false` | Enable rotate/orientation controls |
+| `forceCircleResult(bool)` | `false` | Output a circular (masked) image |
+| `imageFormat(string)` | `'png'` | Output format: `'png'`, `'jpeg'`, `'webp'` |
+| `imageSize(string)` | `'viewport'` | `'viewport'` (viewport-sized) or `'original'` (full-resolution crop region) |
+| `modalTitle(string)` / `modalDescription(string)` / `modalSize(string)` | *(translated)* / `'4xl'` | Crop modal chrome |
+
+#### How the cropped file is saved
+
+The cropped image is produced client-side as base64, then decoded server-side and
+written via `AttachmentManager::putContents()` — the raw-bytes sibling of `upload()`
+that also registers the `Attachment` record. It lands at:
+
+```
+{disk}/{directory}/{source-name}-cropped-{random8}.{imageFormat}
+```
+
+The unique suffix means the original survives and there is no CDN/Glide cache to
+bust (the derivative is a brand-new path). Because it is a first-class `Attachment`,
+it shows up in the browser and works with `storeAsUrl()`, Glide, and the
+`attachables` pivot exactly like any other attachment.
+
+> **Cross-origin note (handled for you):** Croppie draws the source image to a
+> `<canvas>`, so a cross-origin CDN image would taint the canvas and throw a
+> `SecurityError`. The field sidesteps this by loading the crop source through the
+> package's same-origin `attachment` proxy route, which now streams remote-disk
+> (e.g. BunnyCDN) bytes. No CORS configuration on your CDN is required.
+
+#### Assets
+
+Croppie ships bundled with the package and is registered as a `loadedOnRequest()`
+Filament asset, so it is only fetched when a crop field renders. After installing or
+updating, publish the assets (the deploy step you already run for Filament):
+
+```bash
+php artisan filament:assets
 ```
 
 ### Remote file fetcher field
@@ -309,6 +419,16 @@ use AwtTechnology\FilamentAttachmentLibrary\Facades\AttachmentManager;
 $attachment = AttachmentManager::upload($uploadedFile, 'images/products');
 $url        = AttachmentManager::getUrl($attachment);
 $dirs       = AttachmentManager::directories('images');
+
+// Persist raw bytes (e.g. a generated/cropped image) and register the
+// Attachment record — the raw-bytes sibling of upload(). Honours setDisk().
+$attachment = AttachmentManager::setDisk('bunny')->putContents(
+    contents: $pngBytes,
+    mimeType: 'image/png',
+    directory: 'logos',
+    name: 'acme-logo',   // optional; a UUID is used when omitted
+    extension: 'png',
+);
 ```
 
 ### URL-based attachment lookup
